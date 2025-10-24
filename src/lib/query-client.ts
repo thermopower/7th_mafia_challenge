@@ -14,3 +14,13 @@ export const queryClient = new QueryClient({
     },
   },
 })
+
+/**
+ * Query Keys Factory
+ */
+export const queryKeys = {
+  user: {
+    subscription: () => ['user', 'subscription'] as const,
+    quota: () => ['user', 'quota'] as const,
+  },
+} as const
