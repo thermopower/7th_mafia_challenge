@@ -8,6 +8,9 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
+import { useAuth } from "@clerk/nextjs";
+import { setClerkTokenGetter } from "@/lib/remote/api-client";
+import { useEffect } from "react";
 
 function makeQueryClient() {
   return new QueryClient({
@@ -43,6 +46,19 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   //       suspend because React will throw away the client on the initial
   //       render if it suspends and there is no boundary
   const queryClient = getQueryClient();
+  const { getToken } = useAuth();
+
+  // Clerk 토큰 getter를 API 클라이언트에 설정
+  useEffect(() => {
+    setClerkTokenGetter(async () => {
+      try {
+        return await getToken();
+      } catch (error) {
+        console.error("Failed to get Clerk token:", error);
+        return null;
+      }
+    });
+  }, [getToken]);
 
   return (
     <ThemeProvider

@@ -4,25 +4,42 @@
  */
 
 import { createMiddleware } from 'hono/factory'
-import { auth } from '@clerk/nextjs/server'
+import { verifyToken } from '@clerk/backend'
 import type { AppEnv } from '@/backend/hono/context'
 
 /**
  * Clerk 인증 미들웨어 (선택적)
- * 요청 헤더에서 Clerk 사용자 정보를 추출하고 컨텍스트에 주입
- * 인증되지 않은 요청도 허용하며, userId가 없으면 undefined로 설정
+ * Authorization 헤더에서 JWT 토큰을 검증하고 사용자 ID를 주입
+ * 인증되지 않은 요청도 허용
  */
 export const withClerkAuth = () => {
   return createMiddleware<AppEnv>(async (c, next) => {
     try {
-      const { userId } = await auth()
+      const authHeader = c.req.header('Authorization')
 
-      if (userId) {
-        // 사용자 ID를 컨텍스트에 주입
-        c.set('userId', userId)
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.substring(7)
+        const secretKey = process.env.CLERK_SECRET_KEY
+
+        if (!secretKey) {
+          console.error('CLERK_SECRET_KEY is not configured')
+          await next()
+          return
+        }
+
+        try {
+          const payload = await verifyToken(token, {
+            secretKey,
+          })
+
+          if (payload.sub) {
+            c.set('userId', payload.sub)
+          }
+        } catch (error) {
+          console.warn('Invalid Clerk token:', error)
+        }
       }
     } catch (error) {
-      // 인증 실패 시에도 계속 진행 (optional auth)
       console.warn('Clerk auth failed:', error)
     }
 
@@ -36,9 +53,9 @@ export const withClerkAuth = () => {
  */
 export const requireClerkAuth = () => {
   return createMiddleware<AppEnv>(async (c, next) => {
-    const { userId } = await auth()
+    const authHeader = c.req.header('Authorization')
 
-    if (!userId) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return c.json(
         {
           error: {
@@ -50,10 +67,51 @@ export const requireClerkAuth = () => {
       )
     }
 
-    // 사용자 ID를 컨텍스트에 주입
-    c.set('userId', userId)
+    const token = authHeader.substring(7)
+    const secretKey = process.env.CLERK_SECRET_KEY
 
-    await next()
+    if (!secretKey) {
+      return c.json(
+        {
+          error: {
+            code: 'SERVER_ERROR',
+            message: '서버 설정 오류',
+          },
+        },
+        500
+      )
+    }
+
+    try {
+      const payload = await verifyToken(token, {
+        secretKey,
+      })
+
+      if (!payload.sub) {
+        return c.json(
+          {
+            error: {
+              code: 'UNAUTHORIZED',
+              message: '유효하지 않은 토큰입니다',
+            },
+          },
+          401
+        )
+      }
+
+      c.set('userId', payload.sub)
+      await next()
+    } catch (error) {
+      return c.json(
+        {
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '토큰 검증에 실패했습니다',
+          },
+        },
+        401
+      )
+    }
   })
 }
 

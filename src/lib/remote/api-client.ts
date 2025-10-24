@@ -7,6 +7,33 @@ const apiClient = axios.create({
   },
 });
 
+// Clerk 토큰을 설정하는 함수
+let getClerkToken: (() => Promise<string | null>) | null = null;
+
+export const setClerkTokenGetter = (getter: () => Promise<string | null>) => {
+  getClerkToken = getter;
+};
+
+// Request interceptor to add Clerk token
+apiClient.interceptors.request.use(
+  async (config) => {
+    if (getClerkToken) {
+      try {
+        const token = await getClerkToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      } catch (error) {
+        console.error("Failed to get Clerk token:", error);
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 type ErrorPayload = {
   error?: {
     message?: string;
