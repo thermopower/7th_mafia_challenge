@@ -38,5 +38,9 @@ export const withClerkAuth = () => {
  * Clerk 사용자 ID 추출 헬퍼
  */
 export const getClerkId = (c: any): string => {
-  return c.get('clerkId' as any) as string
+  const clerkId = c.get('clerkId')
+  if (!clerkId || typeof clerkId !== 'string') {
+    throw new Error('Clerk ID not found in context')
+  }
+  return clerkId
 }
