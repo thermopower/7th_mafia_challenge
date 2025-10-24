@@ -1,7 +1,10 @@
-"use client";
+'use client';
 
-import Image from "next/image";
-import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
+import { AnalysisList } from '@/features/analysis/components/analysis-list';
+import { QuotaBadge } from '@/features/user/components/quota-badge';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
+import Link from 'next/link';
 
 type DashboardPageProps = {
   params: Promise<Record<string, never>>;
@@ -9,40 +12,28 @@ type DashboardPageProps = {
 
 export default function DashboardPage({ params }: DashboardPageProps) {
   void params;
-  const { user } = useCurrentUser();
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-12">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold">대시보드</h1>
-        <p className="text-slate-500">
-          {user?.email ?? "알 수 없는 사용자"} 님, 환영합니다.
-        </p>
+    <div className="container mx-auto max-w-7xl space-y-8 px-4 py-8">
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">분석 목록</h1>
+          <p className="mt-2 text-muted-foreground">
+            저장된 사주 분석을 확인하고 관리하세요
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <QuotaBadge />
+          <Button asChild>
+            <Link href="/analyze/new">
+              <Plus className="mr-2 h-4 w-4" />
+              새 분석하기
+            </Link>
+          </Button>
+        </div>
       </header>
-      <div className="overflow-hidden rounded-xl border border-slate-200">
-        <Image
-          alt="대시보드"
-          src="https://picsum.photos/seed/dashboard/960/420"
-          width={960}
-          height={420}
-          className="h-auto w-full object-cover"
-        />
-      </div>
-      <section className="grid gap-4 md:grid-cols-2">
-        <article className="rounded-lg border border-slate-200 p-4">
-          <h2 className="text-lg font-medium">현재 세션</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Supabase 미들웨어가 세션 쿠키를 자동으로 동기화합니다.
-          </p>
-        </article>
-        <article className="rounded-lg border border-slate-200 p-4">
-          <h2 className="text-lg font-medium">보안 체크</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            보호된 App Router 세그먼트로 라우팅되며, 로그인 사용
-            자만 접근할 수 있습니다.
-          </p>
-        </article>
-      </section>
+
+      <AnalysisList />
     </div>
   );
 }
