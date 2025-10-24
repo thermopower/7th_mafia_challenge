@@ -4,14 +4,19 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/backend/supabase/client'
+import { createServiceClient } from '@/backend/supabase/client'
+import { getAppConfig } from '@/backend/config'
 import { getPayment } from '@/lib/payments/toss'
 
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
   const event = await req.json()
-  const supabase = createClient()
+  const config = getAppConfig()
+  const supabase = createServiceClient({
+    url: config.supabase.url,
+    serviceRoleKey: config.supabase.serviceRoleKey,
+  })
 
   try {
     switch (event.eventType) {
