@@ -27,7 +27,7 @@ export default function SignupPage({ params }: SignupPageProps) {
         routing="path"
         path="/signup"
         signInUrl="/login"
-        forceRedirectUrl="/"
+        forceRedirectUrl="/dashboard"
       />
     </div>
   );

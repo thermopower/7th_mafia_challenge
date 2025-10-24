@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { LogOut, User as UserIcon } from 'lucide-react'
 import { useCurrentUser } from '@/features/auth/hooks/useCurrentUser'
+import { useClerk } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -18,21 +19,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser-client'
 import { toast } from 'sonner'
 
 export const Header = () => {
   const router = useRouter()
-  const { isAuthenticated, isLoading, user, refresh } = useCurrentUser()
+  const { signOut } = useClerk()
+  const { isAuthenticated, isLoading, user } = useCurrentUser()
 
   const handleSignOut = async () => {
     try {
-      const supabase = getSupabaseBrowserClient()
-      await supabase.auth.signOut()
-      await refresh()
+      await signOut()
       toast.success('로그아웃되었습니다')
       router.push('/')
-      router.refresh()
     } catch (error) {
       toast.error('로그아웃에 실패했습니다')
       console.error('Sign out error:', error)
