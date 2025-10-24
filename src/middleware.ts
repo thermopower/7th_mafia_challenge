@@ -67,9 +67,28 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+
+  try {
+    const { data, error } = await supabase.auth.getUser()
+
+    // 유효하지 않은 토큰 에러 처리
+    if (error) {
+      console.warn('[Middleware] Auth error, clearing session:', error.message)
+      // 유효하지 않은 쿠키 제거
+      await supabase.auth.signOut()
+    } else {
+      user = data.user
+    }
+  } catch (error) {
+    console.error('[Middleware] Unexpected auth error:', error)
+    // 예상치 못한 에러 발생 시에도 세션 정리
+    try {
+      await supabase.auth.signOut()
+    } catch {
+      // signOut 실패는 무시
+    }
+  }
 
   // 보호된 라우트인데 인증되지 않은 경우
   if (isProtectedRoute && !user) {
