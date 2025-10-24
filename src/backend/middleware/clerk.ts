@@ -14,15 +14,19 @@ import type { AppEnv } from '@/backend/hono/context'
  */
 export const withClerkAuth = () => {
   return createMiddleware<AppEnv>(async (c, next) => {
+    const path = c.req.path
+    console.log('[Clerk Middleware] Processing request:', path)
+
     try {
       const authHeader = c.req.header('Authorization')
+      console.log('[Clerk Middleware] Authorization header:', authHeader ? `${authHeader.substring(0, 30)}...` : 'missing')
 
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.substring(7)
         const secretKey = process.env.CLERK_SECRET_KEY
 
         if (!secretKey) {
-          console.error('CLERK_SECRET_KEY is not configured')
+          console.error('[Clerk Middleware] CLERK_SECRET_KEY is not configured')
           await next()
           return
         }
@@ -32,16 +36,23 @@ export const withClerkAuth = () => {
             secretKey,
           })
 
+          console.log('[Clerk Middleware] Token verified, userId:', payload.sub)
+
           if (payload.sub) {
             c.set('userId', payload.sub)
           }
         } catch (error) {
-          console.warn('Invalid Clerk token:', error)
+          console.warn('[Clerk Middleware] Invalid Clerk token:', error)
         }
+      } else {
+        console.warn('[Clerk Middleware] No Bearer token found in Authorization header')
       }
     } catch (error) {
-      console.warn('Clerk auth failed:', error)
+      console.warn('[Clerk Middleware] Clerk auth failed:', error)
     }
+
+    const userId = c.get('userId')
+    console.log('[Clerk Middleware] userId set in context:', userId || 'not set')
 
     await next()
   })

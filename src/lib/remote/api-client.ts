@@ -17,15 +17,25 @@ export const setClerkTokenGetter = (getter: () => Promise<string | null>) => {
 // Request interceptor to add Clerk token
 apiClient.interceptors.request.use(
   async (config) => {
+    console.log('[API Client] Request URL:', config.url);
+    console.log('[API Client] getClerkToken available:', !!getClerkToken);
+
     if (getClerkToken) {
       try {
         const token = await getClerkToken();
+        console.log('[API Client] Token received:', token ? `${token.substring(0, 20)}...` : 'null');
+
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
+          console.log('[API Client] Authorization header set');
+        } else {
+          console.warn('[API Client] No token available');
         }
       } catch (error) {
-        console.error("Failed to get Clerk token:", error);
+        console.error("[API Client] Failed to get Clerk token:", error);
       }
+    } else {
+      console.warn('[API Client] getClerkToken not initialized');
     }
     return config;
   },

@@ -50,14 +50,21 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   // Clerk 토큰 getter를 API 클라이언트에 설정
   useEffect(() => {
+    console.log('[Providers] Setting up Clerk token getter');
+
     setClerkTokenGetter(async () => {
       try {
-        return await getToken();
+        console.log('[Providers] Getting Clerk token...');
+        const token = await getToken();
+        console.log('[Providers] Token received:', token ? `${token.substring(0, 20)}...` : 'null');
+        return token;
       } catch (error) {
-        console.error("Failed to get Clerk token:", error);
+        console.error("[Providers] Failed to get Clerk token:", error);
         return null;
       }
     });
+
+    console.log('[Providers] Clerk token getter set');
   }, [getToken]);
 
   return (
