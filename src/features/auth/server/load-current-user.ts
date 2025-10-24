@@ -1,48 +1,33 @@
 import "server-only";
 
-import type { User } from "@supabase/supabase-js";
-import { createSupabaseServerClient } from "@/lib/supabase/server-client";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import type { CurrentUserSnapshot } from "../types";
 
-const mapUser = (user: User) => ({
-  id: user.id,
-  email: user.email,
-  appMetadata: user.app_metadata ?? {},
-  userMetadata: user.user_metadata ?? {},
-});
-
 export const loadCurrentUser = async (): Promise<CurrentUserSnapshot> => {
-  const supabase = await createSupabaseServerClient();
-
   try {
-    const result = await supabase.auth.getUser();
+    const { userId } = await auth();
 
-    // 에러가 있거나 사용자가 없는 경우
-    if (result.error) {
-      console.warn('[loadCurrentUser] Auth error:', result.error.message);
-      // 유효하지 않은 세션 정리
-      await supabase.auth.signOut();
+    if (!userId) {
       return { status: "unauthenticated", user: null };
     }
 
-    const user = result.data.user;
+    const user = await currentUser();
 
-    if (user) {
-      return {
-        status: "authenticated",
-        user: mapUser(user),
-      };
+    if (!user) {
+      return { status: "unauthenticated", user: null };
     }
 
-    return { status: "unauthenticated", user: null };
+    return {
+      status: "authenticated",
+      user: {
+        id: user.id,
+        email: user.emailAddresses[0]?.emailAddress ?? null,
+        appMetadata: {},
+        userMetadata: user.publicMetadata ?? {},
+      },
+    };
   } catch (error) {
-    console.error('[loadCurrentUser] Unexpected error:', error);
-    // 예상치 못한 에러 발생 시에도 세션 정리 시도
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // signOut 실패는 무시
-    }
+    console.error("[loadCurrentUser] Error:", error);
     return { status: "unauthenticated", user: null };
   }
 };

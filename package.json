@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@clerk/localizations": "^3.26.3",
     "@clerk/nextjs": "^6.34.0",
     "@google/genai": "^1.27.0",
     "@hono/zod-validator": "^0.7.4",
