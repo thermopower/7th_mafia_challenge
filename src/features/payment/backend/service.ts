@@ -6,7 +6,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AppLogger } from '@/backend/hono/context'
 import { issueBillingKey, chargeBilling, deleteBillingKey } from '@/lib/payments/toss'
-import { updateUserMetadata } from '@/lib/clerk/server'
 import type { ConfirmPaymentResponse } from './schema'
 import { PaymentError } from './error'
 
@@ -51,7 +50,7 @@ export async function confirmPaymentService(
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('subscription_tier, remaining_analyses, next_billing_date')
-      .eq('clerk_id', userId)
+      .eq('id', userId)
       .single()
 
     if (userError) {
@@ -120,7 +119,7 @@ export async function confirmPaymentService(
         cancel_at_period_end: false,
         updated_at: new Date().toISOString(),
       })
-      .eq('clerk_id', userId)
+      .eq('id', userId)
 
     if (userUpdateError) {
       logger.error('사용자 구독 정보 업데이트 실패', { error: userUpdateError })
@@ -144,18 +143,6 @@ export async function confirmPaymentService(
     if (paymentHistoryError) {
       logger.error('결제 내역 저장 실패', { error: paymentHistoryError })
       throw new PaymentError('DB_UPDATE_FAILED', '결제 내역 저장에 실패했습니다')
-    }
-
-    // 5. Clerk 메타데이터 업데이트 (선택적)
-    try {
-      await updateUserMetadata(userId, {
-        plan: 'pro',
-        credits: 10,
-      })
-      logger.info('Clerk 메타데이터 업데이트 성공', { userId })
-    } catch (clerkError) {
-      logger.error('Clerk 메타데이터 업데이트 실패', { error: clerkError })
-      // Clerk 업데이트 실패는 치명적이지 않으므로 계속 진행
     }
 
     logger.info('결제 승인 완료', { userId, orderId })

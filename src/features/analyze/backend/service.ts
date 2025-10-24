@@ -18,12 +18,12 @@ import type { AppConfig } from '@/backend/config'
  */
 export const getUserQuotaService = async (
   supabase: SupabaseClient,
-  clerkId: string
+  userId: string
 ) => {
   const { data: user, error } = await supabase
     .from('users')
     .select('remaining_analyses, subscription_tier')
-    .eq('clerk_id', clerkId)
+    .eq('id', userId)
     .is('deleted_at', null)
     .single()
 
@@ -44,14 +44,14 @@ export const createAnalysisService = async (
   supabase: SupabaseClient,
   logger: AppLogger,
   config: AppConfig,
-  clerkId: string,
+  userId: string,
   input: AnalysisCreateInput
 ): Promise<string> => {
   // 1. 사용자 정보 조회 및 잔여 횟수 확인
   const { data: user, error: userError } = await supabase
     .from('users')
     .select('*')
-    .eq('clerk_id', clerkId)
+    .eq('id', userId)
     .is('deleted_at', null)
     .single()
 
