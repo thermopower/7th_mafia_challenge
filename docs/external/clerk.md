@@ -223,6 +223,166 @@ CLERK_WEBHOOK_SECRET=whsec_...
 
 ---
 
+# 6) Hono API 라우트에서 Clerk 인증 처리
+
+이 프로젝트는 **Hono**를 사용하여 API 라우트를 구현하고 있으며, Next.js API 라우트와는 다른 방식으로 Clerk 인증을 처리합니다.
+
+## A. 토큰 전송 방식
+
+Clerk는 요청 유형에 따라 다른 방식으로 토큰을 전송합니다:
+
+* **Same-origin 요청**: 토큰이 `__session` **쿠키**에 자동 저장 (브라우저가 자동 전송)
+* **Cross-origin 요청**: 토큰이 `Authorization` **헤더**에 포함 (`Bearer <token>` 형식)
+
+우리 앱은 same-origin 요청이므로, **쿠키에서 토큰을 읽어야 합니다**.
+
+## B. Clerk 미들웨어 구현 (Hono)
+
+```ts
+// src/backend/middleware/clerk.ts
+import { createMiddleware } from 'hono/factory'
+import { createClerkClient } from '@clerk/backend'
+import { getCookie } from 'hono/cookie'
+import type { AppEnv } from '@/backend/hono/context'
+
+export const withClerkAuth = () => {
+  return createMiddleware<AppEnv>(async (c, next) => {
+    const secretKey = process.env.CLERK_SECRET_KEY
+    const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+
+    if (!secretKey || !publishableKey) {
+      await next()
+      return
+    }
+
+    // 1. Authorization 헤더에서 토큰 확인 (cross-origin)
+    let token = c.req.header('Authorization')?.replace('Bearer ', '')
+
+    // 2. __session 쿠키에서 토큰 확인 (same-origin) ✅ 중요!
+    if (!token) {
+      token = getCookie(c, '__session')
+    }
+
+    if (token) {
+      try {
+        // Clerk Backend SDK로 토큰 검증
+        const clerkClient = createClerkClient({ secretKey, publishableKey })
+        const { sub: userId } = await clerkClient.verifyToken(token)
+
+        if (userId) {
+          c.set('userId', userId)
+        }
+      } catch (error) {
+        console.warn('Token verification failed:', error)
+      }
+    }
+
+    await next()
+  })
+}
+```
+
+**핵심 포인트**:
+* `getCookie(c, '__session')`로 same-origin 요청의 토큰 추출
+* `createClerkClient`와 `verifyToken`으로 토큰 검증
+* 검증된 `userId`를 Hono 컨텍스트에 주입
+
+## C. Hono 앱에 미들웨어 등록
+
+```ts
+// src/backend/hono/app.ts
+import { Hono } from "hono";
+import { withClerkAuth } from "@/backend/middleware/clerk";
+
+const app = new Hono<AppEnv>();
+
+app.use("*", errorBoundary());
+app.use("*", withAppContext());
+app.use("*", withSupabase());
+app.use("*", withClerkAuth()); // ✅ 모든 라우트에 적용
+
+// ... 라우트 등록
+```
+
+## D. API 라우트에서 userId 사용
+
+```ts
+// src/features/user/backend/route.ts
+import type { Hono } from 'hono';
+import type { AppEnv } from '@/backend/hono/context';
+
+export const registerUserRoutes = (app: Hono<AppEnv>) => {
+  app.get('/api/user/quota', async (c) => {
+    const userId = c.get('userId'); // ✅ 미들웨어에서 주입된 userId
+
+    if (!userId) {
+      return c.json({ error: { message: '인증이 필요합니다' } }, 401);
+    }
+
+    // userId 사용하여 비즈니스 로직 처리
+    const quota = await getUserQuota(supabase, userId);
+    return c.json(quota);
+  });
+};
+```
+
+## E. 클라이언트에서 API 호출 (옵션)
+
+같은 도메인 요청이므로 브라우저가 자동으로 `__session` 쿠키를 전송하지만, cross-origin이나 명시적 토큰 전송이 필요한 경우:
+
+```ts
+// src/lib/remote/api-client.ts
+import axios from "axios";
+import { useAuth } from "@clerk/nextjs";
+
+const apiClient = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL ?? "",
+});
+
+// Clerk 토큰을 Authorization 헤더에 추가
+apiClient.interceptors.request.use(async (config) => {
+  if (getClerkToken) {
+    const token = await getClerkToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+```
+
+```tsx
+// src/app/providers.tsx
+import { useAuth } from "@clerk/nextjs";
+import { setClerkTokenGetter } from "@/lib/remote/api-client";
+import { useEffect } from "react";
+
+export default function Providers({ children }) {
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    setClerkTokenGetter(async () => await getToken());
+  }, [getToken]);
+
+  return <>{children}</>;
+}
+```
+
+## F. 중요 차이점
+
+| Next.js Route Handler | Hono API 라우트 |
+|---------------------|----------------|
+| `auth()` 함수 사용 | `createClerkClient().verifyToken()` 사용 |
+| 자동으로 세션 확인 | 수동으로 쿠키/헤더에서 토큰 추출 필요 |
+| `middleware.ts`가 자동 처리 | 커스텀 Hono 미들웨어 구현 필요 |
+
+**왜 이렇게 해야 하는가?**
+* `auth()` 함수는 Next.js Route Handler 내부에서만 작동
+* Hono는 독립적인 HTTP 프레임워크이므로 Clerk Backend SDK를 직접 사용
+* Same-origin 요청의 `__session` 쿠키를 놓치면 401 에러 발생
+
+---
+
 ## 참고한 공식 문서
 
 * **Next.js 퀵스타트/SDK**: 설치·Provider·훅/도우미 전반. ([Clerk][1])
