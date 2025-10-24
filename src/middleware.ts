@@ -1,75 +1,32 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import type { Database } from "@/lib/supabase/types";
-import { env } from "@/constants/env";
-import {
-  LOGIN_PATH,
-  isAuthEntryPath,
-  shouldProtectPath,
-} from "@/constants/auth";
-import { match } from "ts-pattern";
+/**
+ * Clerk 인증 Middleware
+ * 보호된 라우트에 대한 인증 확인
+ */
 
-const copyCookies = (from: NextResponse, to: NextResponse) => {
-  from.cookies.getAll().forEach((cookie) => {
-    to.cookies.set({
-      name: cookie.name,
-      value: cookie.value,
-      path: cookie.path,
-      expires: cookie.expires,
-      httpOnly: cookie.httpOnly,
-      maxAge: cookie.maxAge,
-      sameSite: cookie.sameSite,
-      secure: cookie.secure,
-    });
-  });
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-  return to;
-};
+// 인증이 필요한 라우트 정의
+const isProtectedRoute = createRouteMatcher([
+  '/dashboard(.*)',
+  '/analyze(.*)',
+  '/subscription(.*)',
+  '/profiles(.*)',
+  '/payments(.*)',
+  '/my-account(.*)',
+])
 
-export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({ request });
-
-  const supabase = createServerClient<Database>(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set({ name, value, ...options });
-            response.cookies.set({ name, value, ...options });
-          });
-        },
-      },
-    }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const decision = match({ user, pathname: request.nextUrl.pathname })
-    .when(
-      ({ user: currentUser, pathname }) =>
-        !currentUser && shouldProtectPath(pathname),
-      ({ pathname }) => {
-        const loginUrl = request.nextUrl.clone();
-        loginUrl.pathname = LOGIN_PATH;
-        loginUrl.searchParams.set("redirectedFrom", pathname);
-
-        return copyCookies(response, NextResponse.redirect(loginUrl));
-      }
-    )
-    .otherwise(() => response);
-
-  return decision;
-}
+export default clerkMiddleware(async (auth, req) => {
+  // 보호된 라우트에 접근 시 인증 필수
+  if (isProtectedRoute(req)) {
+    await auth.protect()
+  }
+})
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Next.js 정적 파일 제외
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // API 라우트 포함
+    '/(api|trpc)(.*)',
   ],
-};
+}

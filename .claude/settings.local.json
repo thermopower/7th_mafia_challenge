@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\ndocs: AI 사주풀이 서비스 PRD 작성\n\n- 제품 개요 및 목표\n- Stakeholders 정의\n- 포함 페이지 목록 (IA Tree 포함)\n- 사용자 여정 (무료/Pro 사용자 segment별)\n- 핵심 기능 명세 (AI 분석, 구독 정책, 프로필 관리)\n- 페이지별 상세 기능\n- 비기능 요구사항 (성능, 보안, 확장성)\n- 제약사항 및 고려사항\n- 개발 로드맵 및 KPI\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)",
+      "Bash(npm install:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -205,3 +205,5 @@ Apply these principles judiciously, considering project and team needs.
 `example` page, table is just example.
 
 - 코드 수정 작업을 완료한 뒤 commit을 남겨주세요. message는 최근 기록을 참고해서 적절히 작성하세요.
+
+-`doc`폴더의 문서를 참고하여 프로그램 구조를 파악하세요.
