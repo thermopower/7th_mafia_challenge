@@ -1,0 +1,7 @@
+export const PDF_ERRORS = {
+  ANALYSIS_NOT_FOUND: 'ANALYSIS_NOT_FOUND',
+  GENERATION_FAILED: 'PDF_GENERATION_FAILED',
+  DATABASE_ERROR: 'DATABASE_ERROR',
+} as const
+
+export type PDFErrorCode = typeof PDF_ERRORS[keyof typeof PDF_ERRORS]
