@@ -27,16 +27,6 @@ export const analysisResponseSchema = z.object({
 export type AnalysisResponse = z.infer<typeof analysisResponseSchema>
 
 /**
- * 사용자 잔여 횟수 조회 응답 스키마
- */
-export const userQuotaSchema = z.object({
-  remaining: z.number().int().min(0),
-  tier: z.enum(['free', 'pro']),
-})
-
-export type UserQuota = z.infer<typeof userQuotaSchema>
-
-/**
  * 분석 상세 조회 응답 스키마
  */
 export const analysisDetailResponseSchema = z.object({
