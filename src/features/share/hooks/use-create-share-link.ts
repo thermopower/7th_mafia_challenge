@@ -7,10 +7,10 @@ import type { CreateShareLinkResponse } from '../backend/schema'
 export function useCreateShareLink() {
   return useMutation({
     mutationFn: async (analysisId: string) => {
-      const response = await apiClient.post<{ data: CreateShareLinkResponse }>(
+      const response = await apiClient.post<CreateShareLinkResponse>(
         `/api/share/${analysisId}`
       )
-      return response.data.data
+      return response.data
     },
   })
 }

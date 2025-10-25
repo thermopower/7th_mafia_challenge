@@ -12,11 +12,11 @@ export function useRelatedAnalyses(id: string, limit: number = 3) {
   return useQuery({
     queryKey: queryKeys.relatedAnalyses(id),
     queryFn: async () => {
-      const response = await apiClient.get<{ data: RelatedAnalysesResponse }>(
+      const response = await apiClient.get<RelatedAnalysesResponse>(
         `/api/analysis/${id}/related`,
         { params: { limit: limit.toString() } }
       )
-      return response.data.data
+      return response.data
     },
     staleTime: 5 * 60 * 1000, // 5분
   })
