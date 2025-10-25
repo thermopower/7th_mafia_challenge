@@ -45,13 +45,17 @@ export default function CheckoutPage() {
       const orderId = `order-${user.id}-${Date.now()}`;
       const customerKey = user.id;
 
-      // 빌링키 발급을 위한 카드 등록
-      await tossPaymentsRef.current.requestBillingAuth({
+      // 토스페이먼츠 빌링키 발급을 위한 카드 등록
+      // 일반 결제창을 사용하여 카드 등록 후 빌링키 발급
+      await tossPaymentsRef.current.requestPayment({
         method: 'CARD',
-        successUrl: `${window.location.origin}/api/billing/issue?customerKey=${customerKey}&orderId=${orderId}`,
-        failUrl: `${window.location.origin}/checkout?error=billing_auth_failed`,
-        customerKey,
+        amount: 10000, // 첫 결제 금액
+        orderId: orderId,
+        orderName: 'SuperNext Pro 구독',
         customerName: user.fullName || user.emailAddresses[0]?.emailAddress || '사용자',
+        customerEmail: user.emailAddresses[0]?.emailAddress,
+        successUrl: `${window.location.origin}/api/billing/issue?customerKey=${customerKey}&orderId=${orderId}`,
+        failUrl: `${window.location.origin}/checkout?error=payment_failed`,
       });
     } catch (error) {
       console.error('결제 요청 실패:', error);
