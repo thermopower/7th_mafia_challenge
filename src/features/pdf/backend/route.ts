@@ -7,9 +7,41 @@ export function registerPDFRoutes(app: Hono<AppEnv>) {
   // PDF 생성
   app.post('/api/analysis/:id/pdf', async (c) => {
     const { id } = c.req.param()
-    const tempUserId = 'temp-user-id' // TODO: Clerk 미들웨어로 대체
+    const userId = c.get('userId') // Clerk 인증 미들웨어에서 주입
+    const supabase = c.get('supabase')
 
-    const result = await generateAnalysisPDF(c.get('supabase'), tempUserId, id)
+    if (!userId) {
+      return c.json(
+        {
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '인증이 필요합니다',
+          },
+        },
+        401
+      )
+    }
+
+    // clerk_id로 UUID user_id 조회
+    const { data: user } = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_id', userId)
+      .single()
+
+    if (!user) {
+      return c.json(
+        {
+          error: {
+            code: 'USER_NOT_FOUND',
+            message: '사용자를 찾을 수 없습니다',
+          },
+        },
+        404
+      )
+    }
+
+    const result = await generateAnalysisPDF(supabase, user.id, id)
 
     if (!result.ok) {
       return respond(c, result)
