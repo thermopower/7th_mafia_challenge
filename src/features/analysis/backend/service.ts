@@ -8,14 +8,25 @@ import type {
 
 export async function getAnalysisDetail(
   supabase: SupabaseClient,
-  userId: string,
+  clerkId: string,
   analysisId: string
 ) {
+  // clerk_id로 UUID user_id 조회
+  const { data: user } = await supabase
+    .from('users')
+    .select('id')
+    .eq('clerk_id', clerkId)
+    .single();
+
+  if (!user) {
+    return failure(ANALYSIS_ERRORS.NOT_FOUND, 404);
+  }
+
   const { data, error } = await supabase
     .from('user_analyses')
     .select('*')
     .eq('id', analysisId)
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .is('deleted_at', null)
     .single()
 
@@ -50,10 +61,21 @@ export async function getAnalysisDetail(
 
 export async function getRelatedAnalyses(
   supabase: SupabaseClient,
-  userId: string,
+  clerkId: string,
   excludeId: string,
   limit: number
 ) {
+  // clerk_id로 UUID user_id 조회
+  const { data: user } = await supabase
+    .from('users')
+    .select('id')
+    .eq('clerk_id', clerkId)
+    .single();
+
+  if (!user) {
+    return failure(ANALYSIS_ERRORS.NOT_FOUND, 404);
+  }
+
   // 현재 분석의 이름 조회
   const { data: currentAnalysis } = await supabase
     .from('user_analyses')
@@ -69,7 +91,7 @@ export async function getRelatedAnalyses(
   const { data, error } = await supabase
     .from('user_analyses')
     .select('id, name, analysis_type, model_used, created_at')
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .eq('name', currentAnalysis.name)
     .neq('id', excludeId)
     .is('deleted_at', null)
@@ -85,15 +107,26 @@ export async function getRelatedAnalyses(
 
 export async function deleteAnalysis(
   supabase: SupabaseClient,
-  userId: string,
+  clerkId: string,
   analysisId: string
 ) {
+  // clerk_id로 UUID user_id 조회
+  const { data: user } = await supabase
+    .from('users')
+    .select('id')
+    .eq('clerk_id', clerkId)
+    .single();
+
+  if (!user) {
+    return failure(analysisErrorCodes.notFound, 404);
+  }
+
   // 소유권 확인
   const { data: existing } = await supabase
     .from('user_analyses')
     .select('id')
     .eq('id', analysisId)
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .is('deleted_at', null)
     .single()
 
@@ -118,17 +151,32 @@ export async function deleteAnalysis(
 
 export const getAnalysesList = async (
   client: SupabaseClient,
-  userId: string,
+  clerkId: string,
   query: AnalysisListQuery,
 ): Promise<HandlerResult<AnalysisListResponse, AnalysisServiceError, unknown>> => {
   const { page, limit, search, analysisType, sortBy, order } = query;
   const offset = (page - 1) * limit;
 
+  // clerk_id로 UUID user_id 조회
+  const { data: user, error: userError } = await client
+    .from('users')
+    .select('id')
+    .eq('clerk_id', clerkId)
+    .maybeSingle();
+
+  if (userError) {
+    return failure(500, analysisErrorCodes.fetchError, userError.message);
+  }
+
+  if (!user) {
+    return failure(404, analysisErrorCodes.notFound, 'User not found');
+  }
+
   // 쿼리 빌더 시작
   let queryBuilder = client
     .from('user_analyses')
     .select('id, name, analysis_type, model_used, created_at', { count: 'exact' })
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .is('deleted_at', null);
 
   // 검색 필터
@@ -174,15 +222,26 @@ export const getAnalysesList = async (
 
 export const deleteAnalysisById = async (
   client: SupabaseClient,
-  userId: string,
+  clerkId: string,
   analysisId: string,
 ): Promise<HandlerResult<void, AnalysisServiceError, unknown>> => {
+  // clerk_id로 UUID user_id 조회
+  const { data: user, error: userError } = await client
+    .from('users')
+    .select('id')
+    .eq('clerk_id', clerkId)
+    .maybeSingle();
+
+  if (userError || !user) {
+    return failure(404, analysisErrorCodes.notFound, 'User not found');
+  }
+
   // 권한 확인
   const { data: analysis, error: fetchError } = await client
     .from('user_analyses')
     .select('id')
     .eq('id', analysisId)
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .is('deleted_at', null)
     .maybeSingle();
 

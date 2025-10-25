@@ -206,4 +206,4 @@ Apply these principles judiciously, considering project and team needs.
 
 - 코드 수정 작업을 완료한 뒤 commit을 남겨주세요. message는 최근 기록을 참고해서 적절히 작성하세요.
 
--`doc`폴더의 문서를 참고하여 프로그램 구조를 파악하세요.
+-`docs`폴더의 문서를 참고하여 프로그램 구조를 파악하세요. `docs/external`에는 외부서비스 연동 관련 문서가 있으니 필요시 확인하여 파악하세요.

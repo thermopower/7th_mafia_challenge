@@ -29,7 +29,7 @@
 ## C. Webhook
 
 * **핵심 이벤트**: `user.created`, `user.updated`, `user.deleted`
-* **검증**: `@clerk/backend/webhooks`의 `verifyWebhook(request)` 사용(Clerk는 Svix 기반 헤더/서명).
+* **검증**: `@clerk/nextjs/webhooks`의 `verifyWebhook(req)` 사용(Svix 기반 서명 자동 검증).
 * **로컬 테스트**: ngrok로 외부에 엔드포인트 노출 후 대시보드에서 엔드포인트/이벤트 등록. ([Clerk][3])
 
 ---
@@ -155,11 +155,12 @@ const user = await clerkClient.users.getUser(userId)
 
 ```ts
 // app/api/webhooks/clerk/route.ts
-import { verifyWebhook } from '@clerk/backend/webhooks'
+import { NextRequest, NextResponse } from 'next/server'
+import { verifyWebhook } from '@clerk/nextjs/webhooks'
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const evt = await verifyWebhook(request) // Svix 서명 자동 검증
+    const evt = await verifyWebhook(req) // Svix 서명 자동 검증
     switch (evt.type) {
       case 'user.created': {
         const u = evt.data
@@ -175,9 +176,9 @@ export async function POST(request: Request) {
         break
       }
     }
-    return new Response('OK', { status: 200 })
+    return NextResponse.json({ ok: true })
   } catch (err) {
-    return new Response('Bad signature', { status: 400 })
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 }
 ```
@@ -192,10 +193,10 @@ export async function POST(request: Request) {
 4. 생성 후 발급되는 **Signing secret**을 `.env.local`에 저장
 
 ```env
-CLERK_WEBHOOK_SECRET=whsec_...
+CLERK_WEBHOOK_SIGNING_SECRET=whsec_...
 ```
 
-(변수명은 자유; `verifyWebhook`가 내부적으로 이 값을 사용) ([Clerk][5])
+(`verifyWebhook`이 자동으로 `CLERK_WEBHOOK_SIGNING_SECRET` 환경변수를 참조) ([Clerk][5])
 
 ### 로컬 테스트
 
@@ -206,7 +207,7 @@ CLERK_WEBHOOK_SECRET=whsec_...
 # 4) 인증정보(Secrets) 관리 원칙
 
 * **브라우저 노출**: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`만.
-* **서버 전용**: `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET` 등은 **서버 런타임 변수**로만 사용.
+* **서버 전용**: `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET` 등은 **서버 런타임 변수**로만 사용.
 * **권한/플랜 판정**: UI 즉시 반영은 `publicMetadata`를 보조 캐시로 활용하되, **최종 판정은 DB 값 기준**으로. ([Clerk][1])
 
 ---
@@ -217,7 +218,7 @@ CLERK_WEBHOOK_SECRET=whsec_...
 | --------------- | --------------------- | ----------------------------- | ----------------------------------------------------------------------------- |
 | **SDK**         | 클라/서버 컴포넌트, 미들웨어      | 로그인/회원가입 UI, 세션·유저 조회, 라우트 보호 | `<ClerkProvider/>`, `useUser()`, `auth()`, `clerkMiddleware`+`auth.protect()` |
 | **Backend API** | 서버 라우트/액션             | 사용자 조회, **메타데이터 딥 머지 업데이트**   | `clerkClient.users.getUser()`, `updateUserMetadata()`                         |
-| **Webhook**     | Next.js Route Handler | `user.*` 이벤트 수신→DB 동기화        | `verifyWebhook(request)`로 서명 검증 후 타입별 처리                                      |
+| **Webhook**     | Next.js Route Handler | `user.*` 이벤트 수신→DB 동기화        | `verifyWebhook(req)`로 서명 자동 검증 후 타입별 처리                                      |
 
 (각 항목은 위 코드 블록 참조) ([Clerk][1])
 
@@ -241,7 +242,7 @@ Clerk는 요청 유형에 따라 다른 방식으로 토큰을 전송합니다:
 ```ts
 // src/backend/middleware/clerk.ts
 import { createMiddleware } from 'hono/factory'
-import { createClerkClient } from '@clerk/backend'
+import { verifyToken } from '@clerk/backend'
 import { getCookie } from 'hono/cookie'
 import type { AppEnv } from '@/backend/hono/context'
 
@@ -266,8 +267,11 @@ export const withClerkAuth = () => {
     if (token) {
       try {
         // Clerk Backend SDK로 토큰 검증
-        const clerkClient = createClerkClient({ secretKey, publishableKey })
-        const { sub: userId } = await clerkClient.verifyToken(token)
+        const payload = await verifyToken(token, {
+          secretKey,
+        })
+
+        const userId = payload.sub
 
         if (userId) {
           c.set('userId', userId)
@@ -284,7 +288,7 @@ export const withClerkAuth = () => {
 
 **핵심 포인트**:
 * `getCookie(c, '__session')`로 same-origin 요청의 토큰 추출
-* `createClerkClient`와 `verifyToken`으로 토큰 검증
+* `@clerk/backend`의 `verifyToken` 함수로 토큰 검증
 * 검증된 `userId`를 Hono 컨텍스트에 주입
 
 ## C. Hono 앱에 미들웨어 등록
@@ -372,7 +376,7 @@ export default function Providers({ children }) {
 
 | Next.js Route Handler | Hono API 라우트 |
 |---------------------|----------------|
-| `auth()` 함수 사용 | `createClerkClient().verifyToken()` 사용 |
+| `auth()` 함수 사용 | `verifyToken()` 독립 함수 사용 |
 | 자동으로 세션 확인 | 수동으로 쿠키/헤더에서 토큰 추출 필요 |
 | `middleware.ts`가 자동 처리 | 커스텀 Hono 미들웨어 구현 필요 |
 
@@ -387,15 +391,15 @@ export default function Providers({ children }) {
 
 * **Next.js 퀵스타트/SDK**: 설치·Provider·훅/도우미 전반. ([Clerk][1])
 * **Middleware 레퍼런스**: `clerkMiddleware` / `createRouteMatcher` / 보호 방식. ([Clerk][4])
-* **Webhook 검증**: `@clerk/backend/webhooks` 의 `verifyWebhook()` 사용. ([Clerk][3])
+* **Webhook 검증**: `@clerk/nextjs/webhooks` 의 `verifyWebhook()` 사용. ([Clerk][3])
 * **메타데이터 업데이트(딥 머지)**: `updateUserMetadata()` 레퍼런스. ([Clerk][2])
 * **웹훅 구성/로컬 테스트**: 동기화 가이드, ngrok 활용. ([Clerk][5])
 
 필요하면 이 문서를 **프로젝트용 README.md** 형식으로 변환해서 드리거나, 현재 코드베이스 구조에 맞춘 **템플릿 파일(middleware, webhook, API 라우트)**까지 바로 제공해드릴게요.
 
-[1]: https://clerk.com/docs/nextjs/getting-started/quickstart?utm_source=chatgpt.com "Next.js Quickstart (App Router)"
-[2]: https://clerk.com/docs/reference/backend/user/update-user-metadata?utm_source=chatgpt.com "SDK Reference: updateUserMetadata()"
-[3]: https://clerk.com/docs/reference/backend/verify-webhook?utm_source=chatgpt.com "SDK Reference: verifyWebhook()"
-[4]: https://clerk.com/docs/reference/nextjs/clerk-middleware?utm_source=chatgpt.com "SDK Reference: clerkMiddleware() | Next.js"
-[5]: https://clerk.com/docs/guides/development/webhooks/syncing?utm_source=chatgpt.com "Sync Clerk data to your app with webhooks"
-[6]: https://ngrok.com/docs/integrations/webhooks/clerk-webhooks?utm_source=chatgpt.com "Clerk Webhooks - ngrok documentation"
+[1]: https://clerk.com/docs/nextjs/getting-started/quickstart "Next.js Quickstart (App Router)"
+[2]: https://clerk.com/docs/reference/backend/user/update-user-metadata "SDK Reference: updateUserMetadata()"
+[3]: https://clerk.com/docs/guides/development/webhooks/syncing "Sync Clerk data to your app with webhooks"
+[4]: https://clerk.com/docs/reference/nextjs/clerk-middleware "SDK Reference: clerkMiddleware() | Next.js"
+[5]: https://clerk.com/docs/guides/development/webhooks/syncing "Sync Clerk data to your app with webhooks"
+[6]: https://ngrok.com/docs/integrations/webhooks/clerk-webhooks "Clerk Webhooks - ngrok documentation"

@@ -24,17 +24,10 @@ import {
   type ProfileServiceError,
 } from './error';
 
-// 현재 사용자 ID 가져오기
-const getCurrentUserId = async (c: any): Promise<string | null> => {
-  const supabase = getSupabase(c);
-  const { data: { user } } = await supabase.auth.getUser();
-  return user?.id || null;
-};
-
 export const registerProfileRoutes = (app: Hono<AppEnv>) => {
   // 1. 프로필 목록 조회
   app.get('/api/profiles', async (c) => {
-    const userId = await getCurrentUserId(c);
+    const userId = c.get('userId'); // Clerk 인증 미들웨어에서 주입
     if (!userId) {
       return respond(c, failure(401, 'UNAUTHORIZED', '인증이 필요합니다'));
     }
@@ -54,7 +47,7 @@ export const registerProfileRoutes = (app: Hono<AppEnv>) => {
 
   // 2. 프로필 생성
   app.post('/api/profiles', async (c) => {
-    const userId = await getCurrentUserId(c);
+    const userId = c.get('userId'); // Clerk 인증 미들웨어에서 주입
     if (!userId) {
       return respond(c, failure(401, 'UNAUTHORIZED', '인증이 필요합니다'));
     }
@@ -89,7 +82,7 @@ export const registerProfileRoutes = (app: Hono<AppEnv>) => {
 
   // 3. 프로필 수정
   app.patch('/api/profiles/:id', async (c) => {
-    const userId = await getCurrentUserId(c);
+    const userId = c.get('userId'); // Clerk 인증 미들웨어에서 주입
     if (!userId) {
       return respond(c, failure(401, 'UNAUTHORIZED', '인증이 필요합니다'));
     }
@@ -125,7 +118,7 @@ export const registerProfileRoutes = (app: Hono<AppEnv>) => {
 
   // 4. 프로필 삭제
   app.delete('/api/profiles/:id', async (c) => {
-    const userId = await getCurrentUserId(c);
+    const userId = c.get('userId'); // Clerk 인증 미들웨어에서 주입
     if (!userId) {
       return respond(c, failure(401, 'UNAUTHORIZED', '인증이 필요합니다'));
     }

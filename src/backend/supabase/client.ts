@@ -13,6 +13,7 @@ export const createServiceClient = ({
   createSupabaseClient(url, serviceRoleKey, {
     auth: {
       persistSession: false,
+      autoRefreshToken: false,
     },
   });
 

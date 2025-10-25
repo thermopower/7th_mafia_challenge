@@ -37,7 +37,7 @@ export const updateUserCredits = async (
     .update({
       remaining_analyses: supabase.raw(`remaining_analyses + ${delta}`),
     })
-    .eq('id', userId)
+    .eq('clerk_id', userId)
     .select('remaining_analyses')
     .single()
 

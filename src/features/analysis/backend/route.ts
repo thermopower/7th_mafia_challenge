@@ -16,6 +16,11 @@ export function registerAnalysisRoutes(app: Hono<AppEnv>) {
   // 대시보드: 목록 조회
   app.get('/api/analysis/list', async (c) => {
     const userId = c.get('userId') // Clerk 인증 미들웨어에서 주입
+
+    if (!userId) {
+      return c.json({ error: { message: '인증이 필요합니다' } }, 401);
+    }
+
     const query = c.req.query()
 
     const parsedQuery = AnalysisListQuerySchema.safeParse(query)
@@ -27,7 +32,7 @@ export function registerAnalysisRoutes(app: Hono<AppEnv>) {
     }
 
     const supabase = c.get('supabase')
-    const result = await getAnalysesList(supabase, userId || 'temp-user-id', parsedQuery.data)
+    const result = await getAnalysesList(supabase, userId, parsedQuery.data)
 
     return respond(c, result)
   })
@@ -35,13 +40,13 @@ export function registerAnalysisRoutes(app: Hono<AppEnv>) {
   // 분석 상세 조회
   app.get('/api/analysis/:id', async (c) => {
     const { id } = c.req.param()
-    const userId = c.get('userId') // Clerk 인증 미들웨어에서 주입 (추후 구현)
+    const userId = c.get('userId') // Clerk 인증 미들웨어에서 주입
 
-    // TODO: 실제 userId는 Clerk 미들웨어에서 주입되어야 함
-    // 임시로 하드코딩된 userId 사용 (개발 중)
-    const tempUserId = 'temp-user-id'
+    if (!userId) {
+      return c.json({ error: { message: '인증이 필요합니다' } }, 401);
+    }
 
-    const result = await getAnalysisDetail(c.get('supabase'), tempUserId, id)
+    const result = await getAnalysisDetail(c.get('supabase'), userId, id)
     return respond(c, result)
   })
 
@@ -54,11 +59,15 @@ export function registerAnalysisRoutes(app: Hono<AppEnv>) {
     async (c) => {
       const { id } = c.req.param()
       const { limit } = c.req.valid('query')
-      const tempUserId = 'temp-user-id' // TODO: Clerk 미들웨어로 대체
+      const userId = c.get('userId')
+
+      if (!userId) {
+        return c.json({ error: { message: '인증이 필요합니다' } }, 401);
+      }
 
       const result = await getRelatedAnalyses(
         c.get('supabase'),
-        tempUserId,
+        userId,
         id,
         parseInt(limit, 10)
       )
@@ -69,6 +78,11 @@ export function registerAnalysisRoutes(app: Hono<AppEnv>) {
   // 분석 삭제 (대시보드용 - 타입 안전)
   app.delete('/api/analysis/:id', async (c) => {
     const userId = c.get('userId')
+
+    if (!userId) {
+      return c.json({ error: { message: '인증이 필요합니다' } }, 401);
+    }
+
     const parsedParams = DeleteAnalysisParamsSchema.safeParse({
       id: c.req.param('id'),
     })
@@ -81,7 +95,7 @@ export function registerAnalysisRoutes(app: Hono<AppEnv>) {
     }
 
     const supabase = c.get('supabase')
-    const result = await deleteAnalysisById(supabase, userId || 'temp-user-id', parsedParams.data.id)
+    const result = await deleteAnalysisById(supabase, userId, parsedParams.data.id)
 
     return respond(c, result)
   })

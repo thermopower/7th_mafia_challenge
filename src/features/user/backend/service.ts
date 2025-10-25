@@ -10,7 +10,7 @@ export const getUserQuota = async (
   const { data, error } = await client
     .from('users')
     .select('subscription_tier, remaining_analyses')
-    .eq('id', userId)
+    .eq('clerk_id', userId)
     .maybeSingle();
 
   if (error) {

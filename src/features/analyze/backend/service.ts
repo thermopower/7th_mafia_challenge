@@ -23,7 +23,7 @@ export const getUserQuotaService = async (
   const { data: user, error } = await supabase
     .from('users')
     .select('remaining_analyses, subscription_tier')
-    .eq('id', userId)
+    .eq('clerk_id', userId)
     .is('deleted_at', null)
     .single()
 
@@ -51,7 +51,7 @@ export const createAnalysisService = async (
   const { data: user, error: userError } = await supabase
     .from('users')
     .select('*')
-    .eq('id', userId)
+    .eq('clerk_id', userId)
     .is('deleted_at', null)
     .single()
 

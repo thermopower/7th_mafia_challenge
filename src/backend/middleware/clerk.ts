@@ -4,7 +4,7 @@
  */
 
 import { createMiddleware } from 'hono/factory'
-import { createClerkClient } from '@clerk/backend'
+import { verifyToken } from '@clerk/backend'
 import { getCookie } from 'hono/cookie'
 import type { AppEnv } from '@/backend/hono/context'
 
@@ -45,12 +45,12 @@ export const withClerkAuth = () => {
       }
 
       // Clerk Backend SDK로 토큰 검증
-      const clerkClient = createClerkClient({ secretKey, publishableKey })
-
       try {
-        const { sub: userId } = await clerkClient.verifyToken(token, {
-          // authorizedParties: [process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY],
+        const payload = await verifyToken(token, {
+          secretKey,
         })
+
+        const userId = payload.sub
 
         console.log('[Clerk Middleware] Token verified, userId:', userId)
 
@@ -111,8 +111,11 @@ export const requireClerkAuth = () => {
     }
 
     try {
-      const clerkClient = createClerkClient({ secretKey, publishableKey })
-      const { sub: userId } = await clerkClient.verifyToken(token)
+      const payload = await verifyToken(token, {
+        secretKey,
+      })
+
+      const userId = payload.sub
 
       if (!userId) {
         return c.json(

@@ -5,48 +5,36 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { analysisCreateSchema } from './schema'
-import { createAnalysisService, getUserQuotaService } from './service'
-import { withAuth, getUserId } from '@/backend/middleware/auth'
+import { createAnalysisService } from './service'
 import type { AppEnv } from '@/backend/hono/context'
 import { ERROR_CODES } from './error'
 
 export const analyzeRoutes = new Hono<AppEnv>()
 
-/**
- * 잔여 횟수 조회
- * GET /api/user/quota
- */
-analyzeRoutes.get('/user/quota', withAuth(), async (c) => {
-  const supabase = c.get('supabase')
-  const logger = c.get('logger')
-  const userId = getUserId(c)
-
-  try {
-    const quota = await getUserQuotaService(supabase, userId)
-    return c.json(quota)
-  } catch (error: any) {
-    logger.error('Failed to fetch user quota', error)
-    return c.json(
-      {
-        error: {
-          code: error.code || 'INTERNAL_ERROR',
-          message: error.message || '잔여 횟수 조회에 실패했습니다',
-        },
-      },
-      500
-    )
-  }
-})
+// NOTE: /user/quota 라우트는 src/features/user/backend/route.ts 로 이동되었습니다
+// Clerk 인증을 사용하는 통합 엔드포인트를 사용하세요
 
 /**
  * 분석 생성
  * POST /api/analysis/create
  */
-analyzeRoutes.post('/analysis/create', withAuth(), zValidator('json', analysisCreateSchema), async (c) => {
+analyzeRoutes.post('/analysis/create', zValidator('json', analysisCreateSchema), async (c) => {
   const supabase = c.get('supabase')
   const logger = c.get('logger')
   const config = c.get('config')
-  const userId = getUserId(c)
+  const userId = c.get('userId') // Clerk 인증 미들웨어에서 주입
+
+  if (!userId) {
+    return c.json(
+      {
+        error: {
+          code: 'UNAUTHORIZED',
+          message: '인증이 필요합니다',
+        },
+      },
+      401
+    )
+  }
 
   const input = c.req.valid('json')
 

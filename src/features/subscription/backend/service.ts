@@ -28,7 +28,7 @@ export const getSubscriptionStatus = async (
   const { data, error } = await client
     .from(USERS_TABLE)
     .select('id, subscription_tier, remaining_analyses, next_billing_date, subscription_start_date, cancel_at_period_end, billing_key')
-    .eq('id', userId)
+    .eq('clerk_id', userId)
     .is('deleted_at', null)
     .maybeSingle<UserSubscriptionRow>();
 
@@ -83,7 +83,7 @@ export const cancelSubscription = async (
   const { data: currentUser, error: fetchError } = await client
     .from(USERS_TABLE)
     .select('subscription_tier, cancel_at_period_end')
-    .eq('id', userId)
+    .eq('clerk_id', userId)
     .is('deleted_at', null)
     .maybeSingle();
 
@@ -109,7 +109,7 @@ export const cancelSubscription = async (
       subscription_tier: 'pending_cancel',
       cancel_at_period_end: true,
     })
-    .eq('id', userId);
+    .eq('clerk_id', userId);
 
   if (updateError) {
     return failure(500, subscriptionErrorCodes.updateError, updateError.message);
@@ -128,7 +128,7 @@ export const reactivateSubscription = async (
   const { data: currentUser, error: fetchError } = await client
     .from(USERS_TABLE)
     .select('subscription_tier, cancel_at_period_end, next_billing_date, billing_key')
-    .eq('id', userId)
+    .eq('clerk_id', userId)
     .is('deleted_at', null)
     .maybeSingle();
 
@@ -157,7 +157,7 @@ export const reactivateSubscription = async (
       subscription_tier: 'pro',
       cancel_at_period_end: false,
     })
-    .eq('id', userId);
+    .eq('clerk_id', userId);
 
   if (updateError) {
     return failure(500, subscriptionErrorCodes.updateError, updateError.message);
@@ -171,15 +171,27 @@ export const reactivateSubscription = async (
  */
 export const getPaymentHistory = async (
   client: SupabaseClient,
-  userId: string,
+  clerkId: string,
 ): Promise<HandlerResult<PaymentHistoryResponse, SubscriptionServiceError, unknown>> => {
+  // clerk_id로 UUID user_id 조회
+  const { data: userData, error: userError } = await client
+    .from('users')
+    .select('id')
+    .eq('clerk_id', clerkId)
+    .single();
+
+  if (userError || !userData) {
+    return failure(500, subscriptionErrorCodes.fetchError, userError?.message || 'User not found');
+  }
+
+  const userUuid = userData.id;
   const twelveMonthsAgo = new Date();
   twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
-  const { data, error, count } = await client
+  const { data, error, count} = await client
     .from('payment_history')
     .select('id, order_id, amount, status, method, created_at', { count: 'exact' })
-    .eq('user_id', userId)
+    .eq('user_id', userUuid)
     .gte('created_at', twelveMonthsAgo.toISOString())
     .order('created_at', { ascending: false });
 

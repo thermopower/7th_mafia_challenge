@@ -32,26 +32,27 @@ const mapRowToResponse = (row: ProfileRow): ProfileResponse => ({
 // 1. 프로필 목록 조회
 export const getProfilesList = async (
   client: SupabaseClient,
-  userId: string,
+  clerkId: string,
 ): Promise<HandlerResult<ProfilesListResponse, ProfileServiceError, unknown>> => {
-  // 사용자의 구독 상태 확인 (무료/Pro)
+  // clerk_id로 UUID user_id 조회
   const { data: userData, error: userError } = await client
     .from('users')
-    .select('subscription_tier')
-    .eq('id', userId)
+    .select('id, subscription_tier')
+    .eq('clerk_id', clerkId)
     .single();
 
-  if (userError) {
-    return failure(500, profileErrorCodes.fetchError, userError.message);
+  if (userError || !userData) {
+    return failure(500, profileErrorCodes.fetchError, userError?.message || 'User not found');
   }
 
-  const isPro = userData?.subscription_tier === 'pro';
+  const userUuid = userData.id;
+  const isPro = userData.subscription_tier === 'pro';
 
   // 프로필 목록 조회
   const { data, error, count } = await client
     .from(PROFILE_TABLE)
     .select('*', { count: 'exact' })
-    .eq('user_id', userId)
+    .eq('user_id', userUuid)
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
@@ -81,26 +82,27 @@ export const getProfilesList = async (
 // 2. 프로필 생성
 export const createProfile = async (
   client: SupabaseClient,
-  userId: string,
+  clerkId: string,
   data: CreateProfileRequest,
 ): Promise<HandlerResult<ProfileResponse, ProfileServiceError, unknown>> => {
-  // 프로필 개수 확인
+  // clerk_id로 UUID user_id 조회
   const { data: userData, error: userError } = await client
     .from('users')
-    .select('subscription_tier')
-    .eq('id', userId)
+    .select('id, subscription_tier')
+    .eq('clerk_id', clerkId)
     .single();
 
-  if (userError) {
-    return failure(500, profileErrorCodes.fetchError, userError.message);
+  if (userError || !userData) {
+    return failure(500, profileErrorCodes.fetchError, userError?.message || 'User not found');
   }
 
-  const isPro = userData?.subscription_tier === 'pro';
+  const userUuid = userData.id;
+  const isPro = userData.subscription_tier === 'pro';
 
   const { count } = await client
     .from(PROFILE_TABLE)
     .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
+    .eq('user_id', userUuid)
     .is('deleted_at', null);
 
   if (!isPro && (count || 0) >= 5) {
@@ -115,7 +117,7 @@ export const createProfile = async (
   const { data: duplicate } = await client
     .from(PROFILE_TABLE)
     .select('id')
-    .eq('user_id', userId)
+    .eq('user_id', userUuid)
     .eq('name', data.name)
     .eq('birth_date', data.birthDate)
     .is('deleted_at', null)
@@ -133,7 +135,7 @@ export const createProfile = async (
   const { data: newProfile, error: insertError } = await client
     .from(PROFILE_TABLE)
     .insert({
-      user_id: userId,
+      user_id: userUuid,
       name: data.name,
       gender: data.gender,
       birth_date: data.birthDate,
@@ -175,10 +177,23 @@ export const createProfile = async (
 // 3. 프로필 수정
 export const updateProfile = async (
   client: SupabaseClient,
-  userId: string,
+  clerkId: string,
   profileId: string,
   data: UpdateProfileRequest,
 ): Promise<HandlerResult<ProfileResponse, ProfileServiceError, unknown>> => {
+  // clerk_id로 UUID user_id 조회
+  const { data: userData, error: userError } = await client
+    .from('users')
+    .select('id')
+    .eq('clerk_id', clerkId)
+    .single();
+
+  if (userError || !userData) {
+    return failure(500, profileErrorCodes.fetchError, userError?.message || 'User not found');
+  }
+
+  const userUuid = userData.id;
+
   // 권한 확인
   const { data: existing, error: fetchError } = await client
     .from(PROFILE_TABLE)
@@ -195,7 +210,7 @@ export const updateProfile = async (
     return failure(404, profileErrorCodes.notFound, '프로필을 찾을 수 없습니다');
   }
 
-  if (existing.user_id !== userId) {
+  if (existing.user_id !== userUuid) {
     return failure(403, profileErrorCodes.unauthorized, '권한이 없습니다');
   }
 
@@ -264,9 +279,22 @@ export const updateProfile = async (
 // 4. 프로필 삭제
 export const deleteProfile = async (
   client: SupabaseClient,
-  userId: string,
+  clerkId: string,
   profileId: string,
 ): Promise<HandlerResult<{ success: true }, ProfileServiceError, unknown>> => {
+  // clerk_id로 UUID user_id 조회
+  const { data: userData, error: userError } = await client
+    .from('users')
+    .select('id')
+    .eq('clerk_id', clerkId)
+    .single();
+
+  if (userError || !userData) {
+    return failure(500, profileErrorCodes.fetchError, userError?.message || 'User not found');
+  }
+
+  const userUuid = userData.id;
+
   // 권한 확인
   const { data: existing, error: fetchError } = await client
     .from(PROFILE_TABLE)
@@ -283,7 +311,7 @@ export const deleteProfile = async (
     return failure(404, profileErrorCodes.notFound, '프로필을 찾을 수 없습니다');
   }
 
-  if (existing.user_id !== userId) {
+  if (existing.user_id !== userUuid) {
     return failure(403, profileErrorCodes.unauthorized, '권한이 없습니다');
   }
 

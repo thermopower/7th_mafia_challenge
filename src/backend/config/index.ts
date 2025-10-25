@@ -9,7 +9,8 @@ const envSchema = z.object({
 let cachedConfig: AppConfig | null = null;
 
 export const getAppConfig = (): AppConfig => {
-  if (cachedConfig) {
+  // Development 환경에서는 캐시 비활성화 (환경변수 변경 즉시 반영)
+  if (cachedConfig && process.env.NODE_ENV === 'production') {
     return cachedConfig;
   }
 

@@ -50,7 +50,7 @@ export async function confirmPaymentService(
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('subscription_tier, remaining_analyses, next_billing_date')
-      .eq('id', userId)
+      .eq('clerk_id', userId)
       .single()
 
     if (userError) {
@@ -119,7 +119,7 @@ export async function confirmPaymentService(
         cancel_at_period_end: false,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', userId)
+      .eq('clerk_id', userId)
 
     if (userUpdateError) {
       logger.error('사용자 구독 정보 업데이트 실패', { error: userUpdateError })

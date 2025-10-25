@@ -54,3 +54,7 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON public.users
 
 -- Disable RLS
 ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
+
+-- Grant permissions to service_role
+GRANT ALL PRIVILEGES ON TABLE public.users TO service_role;
+GRANT USAGE ON SCHEMA public TO service_role;

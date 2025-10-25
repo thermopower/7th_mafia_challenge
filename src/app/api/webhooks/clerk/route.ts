@@ -4,49 +4,39 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { Webhook } from 'svix'
+import { verifyWebhook } from '@clerk/nextjs/webhooks'
 import { createServiceClient } from '@/backend/supabase/client'
 import { getAppConfig } from '@/backend/config'
 
 export const runtime = 'nodejs'
 
+// GET 요청 핸들러 (엔드포인트 확인용)
+export async function GET() {
+  return NextResponse.json({
+    status: 'ok',
+    message: 'Clerk webhook endpoint is ready',
+    timestamp: new Date().toISOString(),
+  })
+}
+
 export async function POST(req: NextRequest) {
-  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET
-
-  if (!WEBHOOK_SECRET) {
-    return NextResponse.json(
-      { error: 'Missing CLERK_WEBHOOK_SECRET' },
-      { status: 500 }
-    )
-  }
-
-  // Svix 헤더 가져오기
-  const svixId = req.headers.get('svix-id')
-  const svixTimestamp = req.headers.get('svix-timestamp')
-  const svixSignature = req.headers.get('svix-signature')
-
-  if (!svixId || !svixTimestamp || !svixSignature) {
-    return NextResponse.json(
-      { error: 'Missing Svix headers' },
-      { status: 400 }
-    )
-  }
-
-  // 요청 본문 가져오기
-  const payload = await req.text()
-  const wh = new Webhook(WEBHOOK_SECRET)
-
-  let evt: any
+  const timestamp = new Date().toISOString()
+  console.log('='.repeat(80))
+  console.log(`[Clerk Webhook] ${timestamp} - WEBHOOK REQUEST RECEIVED`)
+  console.log('='.repeat(80))
+  console.log('[Clerk Webhook] Request URL:', req.url)
+  console.log('[Clerk Webhook] Request Method:', req.method)
+  console.log('[Clerk Webhook] Headers:', Object.fromEntries(req.headers))
 
   // Webhook 검증
+  let evt: any
+
   try {
-    evt = wh.verify(payload, {
-      'svix-id': svixId,
-      'svix-timestamp': svixTimestamp,
-      'svix-signature': svixSignature,
-    })
+    console.log('[Clerk Webhook] Attempting to verify webhook...')
+    evt = await verifyWebhook(req)
+    console.log('[Clerk Webhook] Verification successful, event type:', evt.type)
   } catch (err) {
-    console.error('Clerk webhook verification failed:', err)
+    console.error('[Clerk Webhook] Verification failed:', err)
     return NextResponse.json(
       { error: 'Invalid signature' },
       { status: 400 }
@@ -65,14 +55,31 @@ export async function POST(req: NextRequest) {
         const { id, email_addresses } = evt.data
         const email = email_addresses?.[0]?.email_address ?? null
 
-        await supabase.from('users').insert({
+        console.log('[Clerk Webhook] Processing user.created event:', { id, email })
+
+        const { data, error } = await supabase.from('users').insert({
           clerk_id: id,
           email: email,
           subscription_tier: 'free',
           remaining_analyses: 3,
         })
 
-        console.info(`User created: ${id}`)
+        if (error) {
+          console.error('[Clerk Webhook] ❌ DB insert failed:', {
+            clerkId: id,
+            email: email,
+            errorMessage: error.message,
+            errorDetails: error.details,
+            errorHint: error.hint,
+            errorCode: error.code,
+          })
+          return NextResponse.json(
+            { error: 'Database insert failed', details: error.message },
+            { status: 500 }
+          )
+        }
+
+        console.log('[Clerk Webhook] ✅ User created successfully:', { id, email, data })
         break
       }
 

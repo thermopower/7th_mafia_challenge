@@ -9,7 +9,11 @@ export const registerUserRoutes = (app: Hono<AppEnv>) => {
     const userId = c.get('userId'); // Clerk 인증 미들웨어에서 주입
     const supabase = c.get('supabase');
 
-    const result = await getUserQuota(supabase, userId || 'temp-user-id');
+    if (!userId) {
+      return c.json({ error: { message: '인증이 필요합니다' } }, 401);
+    }
+
+    const result = await getUserQuota(supabase, userId);
 
     return respond(c, result);
   });
