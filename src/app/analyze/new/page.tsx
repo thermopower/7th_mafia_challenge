@@ -6,6 +6,7 @@
 'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageHeader } from '@/components/common/page-header'
 import { NewAnalysisForm } from '@/features/analyze/components/new-analysis-form'
 import { ProfileSelector } from '@/features/analyze/components/profile-selector'
 import { QuotaBadge } from '@/features/analyze/components/quota-badge'
@@ -26,10 +27,9 @@ export default function NewAnalysisPage() {
 
   return (
     <div className="container mx-auto max-w-4xl py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">새 분석하기</h1>
+      <PageHeader title="새 분석하기">
         <QuotaBadge remaining={remaining} tier={tier} />
-      </div>
+      </PageHeader>
 
       <QuotaWarningModal remaining={remaining} tier={tier} />
 

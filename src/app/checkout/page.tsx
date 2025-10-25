@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { loadTossPayments, TossPaymentsPayment } from '@tosspayments/tosspayments-sdk';
+import { PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, Loader2 } from 'lucide-react';
@@ -83,12 +84,10 @@ export default function CheckoutPage() {
 
   return (
     <div className="container max-w-2xl mx-auto py-16 space-y-8">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold">Pro 플랜 구독</h1>
-        <p className="text-muted-foreground mt-2">
-          안전한 결제를 위해 토스페이먼츠를 사용합니다
-        </p>
-      </div>
+      <PageHeader
+        title="Pro 플랜 구독"
+        description="안전한 결제를 위해 토스페이먼츠를 사용합니다"
+      />
 
       <Card>
         <CardHeader>

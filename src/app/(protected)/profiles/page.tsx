@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/common/page-header';
 import { LoadingSpinner } from '@/components/common/loading-spinner';
 import { ErrorState } from '@/components/common/error-state';
 import { UserPlus, AlertCircle } from 'lucide-react';
@@ -97,20 +98,18 @@ export default function ProfilesPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">프로필 관리</h1>
-          <p className="text-muted-foreground mt-1">
-            자주 보는 사람의 정보를 저장하세요
-          </p>
-        </div>
+      <PageHeader
+        title="프로필 관리"
+        description="자주 보는 사람의 정보를 저장하세요"
+        showBackButton={false}
+      >
         {profiles.length > 0 && (
           <Button onClick={handleAddClick} disabled={!canAddMore}>
             <UserPlus className="w-4 h-4 mr-2" />
             프로필 추가
           </Button>
         )}
-      </div>
+      </PageHeader>
 
       {!canAddMore && (
         <Alert className="mb-6">

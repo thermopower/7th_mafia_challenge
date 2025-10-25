@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/common/page-header';
 import { SubscriptionStatusCard } from '@/features/subscription/components/subscription-status-card';
 import { PlanComparisonTable } from '@/features/subscription/components/plan-comparison-table';
 import { CancelSubscriptionModal } from '@/features/subscription/components/cancel-subscription-modal';
@@ -18,12 +19,10 @@ export default function SubscriptionPage() {
 
   return (
     <div className="container max-w-5xl mx-auto py-8 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">구독 관리</h1>
-        <p className="text-muted-foreground mt-2">
-          구독 상태를 확인하고 플랜을 관리하세요.
-        </p>
-      </div>
+      <PageHeader
+        title="구독 관리"
+        description="구독 상태를 확인하고 플랜을 관리하세요."
+      />
 
       <SubscriptionStatusCard />
 
