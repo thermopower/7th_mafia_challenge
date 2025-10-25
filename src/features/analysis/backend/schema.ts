@@ -20,7 +20,7 @@ export const AnalysisListItemSchema = z.object({
   name: z.string(),
   analysisType: z.enum(['monthly', 'yearly', 'lifetime']),
   modelUsed: z.enum(['gemini-2.5-flash', 'gemini-2.5-pro']),
-  createdAt: z.string().datetime(),
+  createdAt: z.string(),
 });
 
 export const AnalysisListResponseSchema = z.object({
