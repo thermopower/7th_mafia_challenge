@@ -54,7 +54,7 @@ export default function AnalysisDetailPage(props: {
     <div className="container py-8 space-y-8">
       <AnalysisDetailHeader analysis={analysis} />
       <AnalysisResultCards result={result} />
-      <AnalysisActions analysisId={params.id} />
+      <AnalysisActions analysisId={params.id} analysis={analysis} result={result} />
       {relatedData?.analyses && relatedData.analyses.length > 0 && (
         <RelatedAnalyses analyses={relatedData.analyses} />
       )}

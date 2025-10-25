@@ -5,35 +5,32 @@ import { Button } from '@/components/ui/button'
 import { Download, Share2, Trash2 } from 'lucide-react'
 import { ShareModal } from './share-modal'
 import { DeleteConfirmModal } from './delete-confirm-modal'
-import { useGeneratePDF } from '../hooks/use-generate-pdf'
-import { useToast } from '@/hooks/use-toast'
+import { useDownloadPDF } from '../hooks/use-download-pdf'
+import type { AnalysisDetailResponse } from '../backend/schema'
 
 interface AnalysisActionsProps {
   analysisId: string
+  analysis: AnalysisDetailResponse['analysis']
+  result: AnalysisDetailResponse['result']
 }
 
-export function AnalysisActions({ analysisId }: AnalysisActionsProps) {
+export function AnalysisActions({ analysisId, analysis, result }: AnalysisActionsProps) {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const { mutate: generatePDF, isPending: isPDFGenerating } = useGeneratePDF()
-  const { toast } = useToast()
+  const { downloadPDF, isGenerating } = useDownloadPDF()
 
   const handlePDFDownload = () => {
-    generatePDF(analysisId, {
-      onSuccess: () => {
-        toast({
-          title: 'PDF 다운로드 시작',
-          description: '분석 결과를 PDF로 다운로드합니다.',
-        })
+    downloadPDF(
+      {
+        name: analysis.name,
+        birthDate: analysis.birthDate,
+        birthTime: analysis.birthTime,
+        isLunar: analysis.isLunar,
+        analysisType: analysis.analysisType,
+        result,
       },
-      onError: () => {
-        toast({
-          title: 'PDF 생성 실패',
-          description: '잠시 후 다시 시도해주세요.',
-          variant: 'destructive',
-        })
-      },
-    })
+      analysisId
+    )
   }
 
   return (
@@ -42,10 +39,10 @@ export function AnalysisActions({ analysisId }: AnalysisActionsProps) {
         <Button
           variant="outline"
           onClick={handlePDFDownload}
-          disabled={isPDFGenerating}
+          disabled={isGenerating}
         >
           <Download className="mr-2 h-4 w-4" />
-          {isPDFGenerating ? 'PDF 생성 중...' : 'PDF로 저장'}
+          {isGenerating ? 'PDF 생성 중...' : 'PDF로 저장'}
         </Button>
         <Button variant="outline" onClick={() => setIsShareModalOpen(true)}>
           <Share2 className="mr-2 h-4 w-4" />
