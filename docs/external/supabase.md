@@ -1,288 +1,612 @@
-아래 문서는 2025-10-25(Asia/Seoul) 기준으로, 최신 LTS(Node 22 / Node 24 LTS 전환) 환경에서 검증한 결과를 반영해 정리한 **최종 연동 가이드**입니다. 각 수단(SDK / API / Webhook)에 대해 **사용 기능**, **설치·세팅**, **인증정보 관리**, **호출 방법**을 모두 포함했습니다. 필요 핵심 근거는 각 절에 출처로 첨부했습니다.
+# Supabase 연동 가이드
+
+> 2025-10-25 기준, 현재 프로젝트 구현을 반영한 Supabase 연동 문서
 
 ---
 
-# 1) SDK 연동: `@supabase/supabase-js` (Hono 백엔드에서만 사용)
+## 목차
 
-## 사용할 기능
+1. [개요](#개요)
+2. [아키텍처](#아키텍처)
+3. [설치 및 설정](#설치-및-설정)
+4. [Supabase 클라이언트](#supabase-클라이언트)
+5. [미들웨어](#미들웨어)
+6. [인증 흐름](#인증-흐름)
+7. [데이터베이스 접근 패턴](#데이터베이스-접근-패턴)
+8. [보안 고려사항](#보안-고려사항)
 
-* PostgREST 쿼리(`from().select()/insert()/update()/delete()`), RPC, Storage, Realtime 등 Supabase 서버 기능을 **백엔드(Hono)에서만** 호출. 프론트(Next.js)에서는 직접 Supabase 키를 노출하지 않습니다. ([Supabase][1])
+---
 
-## 설치 · 세팅
+## 개요
+
+이 프로젝트는 **Supabase**를 PostgreSQL 데이터베이스 및 인증 저장소로 사용합니다.
+
+### 핵심 원칙
+
+- **서버 사이드 전용**: Supabase 클라이언트는 Hono 백엔드에서만 사용
+- **Service Role Key 사용**: RLS를 우회하여 관리자 권한으로 데이터 접근
+- **Clerk 기반 인증**: 사용자 인증은 Clerk를 사용하고, Supabase는 데이터 저장소로만 활용
+- **clerk_id 매핑**: Clerk의 user ID를 Supabase의 users 테이블에 저장하여 연결
+
+---
+
+## 아키텍처
+
+```
+┌─────────────────┐
+│   Next.js App   │
+│  (Client Side)  │
+└────────┬────────┘
+         │ API Request with Clerk Token
+         ▼
+┌─────────────────┐
+│   Hono Server   │
+│  /api/[[...]]   │
+├─────────────────┤
+│ ┌─────────────┐ │
+│ │   Clerk     │ │ ← Token 검증
+│ │ Middleware  │ │
+│ └──────┬──────┘ │
+│        │        │
+│ ┌──────▼──────┐ │
+│ │  Supabase   │ │ ← Service Role Key
+│ │  Middleware │ │
+│ └──────┬──────┘ │
+│        │        │
+│ ┌──────▼──────┐ │
+│ │   Routes    │ │
+│ │  (Service)  │ │
+│ └─────────────┘ │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│    Supabase     │
+│   PostgreSQL    │
+└─────────────────┘
+```
+
+---
+
+## 설치 및 설정
+
+### 1. 패키지 설치
 
 ```bash
 npm install @supabase/supabase-js
 ```
 
-* **프로젝트 URL / API 키 위치**: Supabase Studio → **Settings → API**에서 `Project URL`과 `Project API keys`(anon, service_role 등)를 확인합니다. ([Supabase][2])
+### 2. 환경 변수 설정
 
-### Hono에서 클라이언트 초기화
+`.env.local` 또는 배포 환경의 환경 변수:
 
-```ts
-// src/lib/supabaseClient.ts
-import { createClient } from '@supabase/supabase-js'
+```env
+# Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY! // 서버 전용
-
-export const supabase = createClient(supabaseUrl, supabaseServiceKey)
+# Clerk
+CLERK_SECRET_KEY=sk_live_...
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_...
 ```
 
-* `createClient(url, key)` 초기화 방식은 공식 레퍼런스와 동일합니다. ([Supabase][1])
+**⚠️ 중요**:
+- `SUPABASE_SERVICE_ROLE_KEY`는 RLS를 우회하는 강력한 권한을 가지므로 **절대 클라이언트에 노출하지 마세요**
+- Supabase Dashboard → Settings → API에서 확인 가능
 
-## 인증정보 관리(보안)
+---
 
-* **`service_role` 키는 RLS를 우회하는 강력 권한**이므로 **서버 전용 비밀 변수**로만 보관하세요(.env, 배포 플랫폼의 환경변수). 절대 브라우저나 공개 저장소에 노출 금지. 키 위치는 위 **API Settings** 화면에서 확인합니다. ([Supabase][2])
+## Supabase 클라이언트
 
-## 호출 방법(예시)
+### 클라이언트 생성 (`src/backend/supabase/client.ts`)
 
-```ts
-// src/index.ts
+```typescript
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+export type ServiceClientConfig = {
+  url: string
+  serviceRoleKey: string
+}
+
+export const createServiceClient = ({
+  url,
+  serviceRoleKey,
+}: ServiceClientConfig): SupabaseClient =>
+  createSupabaseClient(url, serviceRoleKey, {
+    auth: {
+      persistSession: false,    // 서버에서는 세션 유지 불필요
+      autoRefreshToken: false,  // 토큰 자동 갱신 비활성화
+    },
+  })
+```
+
+**핵심 설정**:
+- `persistSession: false`: 서버 환경에서는 세션을 메모리에 저장할 필요 없음
+- `autoRefreshToken: false`: Service Role Key는 만료되지 않음
+
+---
+
+## 미들웨어
+
+### Supabase 미들웨어 (`src/backend/middleware/supabase.ts`)
+
+모든 요청에 Supabase 클라이언트를 주입합니다.
+
+```typescript
+import { createMiddleware } from 'hono/factory'
+import { contextKeys, type AppEnv } from '@/backend/hono/context'
+import { createServiceClient } from '@/backend/supabase/client'
+
+export const withSupabase = () =>
+  createMiddleware<AppEnv>(async (c, next) => {
+    const config = c.get(contextKeys.config)
+
+    if (!config) {
+      throw new Error('Application configuration is not available.')
+    }
+
+    const client = createServiceClient(config.supabase)
+    c.set(contextKeys.supabase, client)
+
+    await next()
+  })
+```
+
+### Hono 앱 등록 (`src/backend/hono/app.ts`)
+
+```typescript
 import { Hono } from 'hono'
-import { supabase } from './lib/supabaseClient'
+import { errorBoundary } from '@/backend/middleware/error'
+import { withAppContext } from '@/backend/middleware/context'
+import { withSupabase } from '@/backend/middleware/supabase'
+import { withClerkAuth } from '@/backend/middleware/clerk'
 
-const app = new Hono()
+export const createHonoApp = () => {
+  const app = new Hono<AppEnv>()
 
-app.get('/users/:id', async (c) => {
-  const { id } = c.req.param()
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', id)
-    .single()
+  // 미들웨어 등록 순서가 중요
+  app.use('*', errorBoundary())      // 1. 에러 처리
+  app.use('*', withAppContext())     // 2. 설정 주입
+  app.use('*', withSupabase())       // 3. Supabase 클라이언트
+  app.use('*', withClerkAuth())      // 4. Clerk 인증 (선택적)
 
-  if (error) return c.json({ error: error.message }, 500)
-  return c.json(data)
-})
+  // 라우트 등록...
 
-export default app
+  return app
+}
 ```
 
 ---
 
-# 2) API 연동: **Hono 백엔드 API** (Next.js → Hono → Supabase)
+## 인증 흐름
 
-## 사용할 기능
+### 1. Clerk 인증 (`src/backend/middleware/clerk.ts`)
 
-* 제품 요구사항에 맞는 REST 엔드포인트 제공(예: 분석 생성/조회/삭제, 프로필 CRUD, 구독 상태 등).
-* **Clerk 인증**을 통과한 요청만 처리(Authorization: Bearer 토큰). 교차 도메인 호출 시 **헤더로 토큰 전달**이 권장됩니다. ([Clerk][3])
+```typescript
+export const withClerkAuth = () => {
+  return createMiddleware<AppEnv>(async (c, next) => {
+    const secretKey = process.env.CLERK_SECRET_KEY
 
-### 대표 엔드포인트 예시
+    // 1. Authorization 헤더 또는 __session 쿠키에서 토큰 추출
+    let token = c.req.header('Authorization')?.replace('Bearer ', '')
+    if (!token) {
+      token = getCookie(c, '__session')
+    }
 
-* `POST /api/analysis` (예: Gemini 호출 포함)
-* `GET /api/analysis-results`, `GET /api/analysis-results/:id`, `DELETE /api/analysis-results/:id`
-* `GET /api/profiles`, `POST /api/profiles`
-* `GET /api/subscription` (현재 구독 상태)
+    if (token) {
+      try {
+        // 2. Clerk Backend SDK로 토큰 검증
+        const payload = await verifyToken(token, { secretKey })
+        const userId = payload.sub
 
-## 설치 · 세팅
+        // 3. Context에 userId 저장
+        if (userId) {
+          c.set('userId', userId)
+        }
+      } catch (error) {
+        console.warn('Token verification failed:', error)
+      }
+    }
 
-```bash
-npm install hono @hono/clerk-auth @clerk/backend
+    await next()
+  })
+}
 ```
 
-* Hono에 Clerk 미들웨어를 붙일 때는 **`@hono/clerk-auth`** 패키지를 사용합니다. (이전 표기인 `@clerk/hono`가 아니라는 점에 유의) ([Clerk][4])
+### 2. clerk_id → UUID 변환 패턴
 
-### CORS 설정(도메인 분리 시)
+모든 서비스 레이어에서 사용되는 공통 패턴:
 
-Hono 기본 CORS 미들웨어 사용:
+```typescript
+export async function someService(
+  supabase: SupabaseClient,
+  clerkId: string,
+  // ... other params
+) {
+  // 1. Clerk ID로 Supabase users 테이블의 UUID 조회
+  const { data: user } = await supabase
+    .from('users')
+    .select('id')
+    .eq('clerk_id', clerkId)
+    .single()
 
-```ts
-import { cors } from 'hono/cors'
-app.use('/api/*', cors({ origin: 'https://your-frontend.example' }))
-```
-
-* Hono 공식 문서의 CORS 미들웨어를 참고하고, 환경변수로 origin을 분기하면 운영/개발 전환이 편합니다. ([hono.dev][5])
-
-## 인증정보 관리
-
-* **Clerk** 서버측 검증에 필요한 비밀키(예: `CLERK_SECRET_KEY`)는 Hono 환경변수로 보관.
-* 프론트(Next.js)에서는 `@clerk/nextjs`로 로그인 상태를 관리하고, **`useAuth().getToken()`으로 얻은 세션 토큰**을 API 호출 시 `Authorization: Bearer <token>`로 전달합니다. ([Clerk][3])
-
-## 호출 방법
-
-### (백엔드) Clerk 미들웨어 보호 및 사용자 식별
-
-```ts
-import { Hono } from 'hono'
-import { clerkMiddleware, getAuth } from '@hono/clerk-auth'
-//                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  패키지 주의
-
-const app = new Hono()
-
-app.use('/api/*', clerkMiddleware()) // 보호 라우트
-
-app.get('/api/me', async (c) => {
-  const auth = getAuth(c)
-  if (!auth?.userId) return c.json({ error: 'Unauthorized' }, 401)
-
-  // userId로 Supabase 조회 등…
-  return c.json({ userId: auth.userId })
-})
-
-export default app
-```
-
-* `clerkMiddleware`/`getAuth` 사용 흐름은 Clerk 문서와 일치합니다. ([Clerk][4])
-
-### (프론트엔드) Next.js에서 토큰 포함 호출
-
-```ts
-// 예: app/(dashboard)/page.tsx
-import { useAuth } from '@clerk/nextjs'
-
-export default function Page() {
-  const { getToken } = useAuth()
-
-  async function loadMe() {
-    const token = await getToken()
-    const res = await fetch('https://api.your-service.com/api/me', {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store'
-    })
-    console.log(await res.json())
+  if (!user) {
+    return failure(404, 'USER_NOT_FOUND', 'User not found')
   }
+
+  // 2. UUID를 사용하여 다른 테이블과 조인
+  const { data } = await supabase
+    .from('user_analyses')
+    .select('*')
+    .eq('user_id', user.id)  // UUID 사용
+    .is('deleted_at', null)
 
   // ...
 }
 ```
 
-* Clerk 공식 가이드: 교차 오리진(API 서브도메인 등) 호출 시 **Bearer 토큰을 명시적으로 전달**해야 합니다. ([Clerk][3])
+### 3. 프론트엔드 API 호출
 
----
+```typescript
+// Next.js 클라이언트 컴포넌트
+'use client'
 
-# 3) Webhook 연동: **Clerk → Hono**(Svix 서명 검증)
+import { apiClient } from '@/lib/remote/api-client'
 
-## 사용할 기능
-
-* `user.created`, `user.updated`, `user.deleted` 등 **사용자 이벤트 수신** 및 DB 동기화.
-
-## 설치 · 세팅
-
-1. Clerk Dashboard → Webhooks에서 엔드포인트 등록
-2. 발급되는 **Signing secret(`whsec_...`)**을 복사해 Hono 환경변수에 저장:
-
+export function useAnalysisList() {
+  return useQuery({
+    queryKey: ['analyses', 'list'],
+    queryFn: async () => {
+      // apiClient는 자동으로 Clerk 토큰을 Authorization 헤더에 추가
+      const response = await apiClient.get('/api/analysis/list')
+      return response.data
+    },
+  })
+}
 ```
-CLERK_WEBHOOK_SECRET="whsec_XXXXXXXXXXXXXXXX"
-```
 
-* Clerk는 **Svix**를 통해 웹훅을 전송하며, 헤더 `svix-id`, `svix-timestamp`, `svix-signature`와 **원본(raw) 바디**로 검증해야 합니다. ([docs.svix.com][6])
+API 클라이언트 설정 (`src/lib/remote/api-client.ts`):
 
-## 인증정보 관리(보안)
-
-* `CLERK_WEBHOOK_SECRET`은 서버 환경변수로만 저장.
-* **검증은 반드시 “원본 바디”로** 수행(공백/순서 변화만으로도 서명이 달라짐). ([docs.svix.com][6])
-
-## 호출(수신) 방법(검증 예시, Hono)
-
-```ts
-import { Hono } from 'hono'
-import { Webhook } from 'svix'
-
-const app = new Hono()
-
-app.post('/api/webhooks/clerk', async (c) => {
-  const secret = process.env.CLERK_WEBHOOK_SECRET
-  if (!secret) return c.json({ error: 'Missing signing secret' }, 500)
-
-  // Svix 헤더 추출
-  const svixId        = c.req.header('svix-id')
-  const svixTimestamp = c.req.header('svix-timestamp')
-  const svixSignature = c.req.header('svix-signature')
-  if (!svixId || !svixTimestamp || !svixSignature) {
-    return c.json({ error: 'Missing svix headers' }, 400)
+```typescript
+// Request interceptor에서 Clerk 토큰 자동 추가
+apiClient.interceptors.request.use(async (config) => {
+  if (getClerkToken) {
+    const token = await getClerkToken()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
   }
-
-  // ⚠️ 원본 바디 확보 (텍스트 그대로)
-  const body = await c.req.text()
-
-  // 서명 검증
-  const wh = new Webhook(secret)
-  let evt
-  try {
-    evt = wh.verify(body, {
-      'svix-id': svixId,
-      'svix-timestamp': svixTimestamp,
-      'svix-signature': svixSignature,
-    })
-  } catch (e) {
-    return c.json({ error: 'Webhook verification failed' }, 400)
-  }
-
-  // 이벤트 처리
-  if (evt.type === 'user.created') {
-    const { id, email_addresses } = evt.data as any
-    // 예: Supabase로 사용자 동기화
-    // await supabase.from('users').insert({ clerk_id: id, email: email_addresses?.[0]?.email_address })
-  }
-
-  return c.json({ ok: true })
+  return config
 })
-
-export default app
 ```
 
-* Svix 문서는 **서명 검증 시 “raw body”를 그대로 사용**해야 함을 명시합니다. ([docs.svix.com][6])
+---
+
+## 데이터베이스 접근 패턴
+
+### 기본 CRUD 예시
+
+#### 1. 조회 (Read)
+
+```typescript
+// 단일 레코드
+const { data, error } = await supabase
+  .from('user_analyses')
+  .select('*')
+  .eq('id', analysisId)
+  .eq('user_id', userId)
+  .is('deleted_at', null)
+  .single()
+
+// 목록 조회 (페이지네이션)
+const { data, error, count } = await supabase
+  .from('user_analyses')
+  .select('id, name, created_at', { count: 'exact' })
+  .eq('user_id', userId)
+  .is('deleted_at', null)
+  .order('created_at', { ascending: false })
+  .range(offset, offset + limit - 1)
+```
+
+#### 2. 생성 (Create)
+
+```typescript
+const { data, error } = await supabase
+  .from('user_analyses')
+  .insert({
+    user_id: userId,
+    name: '홍길동',
+    birth_date: '1990-01-01',
+    analysis_type: 'yearly',
+    result_json: analysisResult,
+  })
+  .select()
+  .single()
+```
+
+#### 3. 수정 (Update)
+
+```typescript
+const { data, error } = await supabase
+  .from('user_profiles')
+  .update({
+    name: '김철수',
+    updated_at: new Date().toISOString(),
+  })
+  .eq('id', profileId)
+  .eq('user_id', userId)
+  .select()
+  .single()
+```
+
+#### 4. 삭제 (Soft Delete)
+
+```typescript
+// Soft delete 패턴 (권장)
+const { error } = await supabase
+  .from('user_analyses')
+  .update({ deleted_at: new Date().toISOString() })
+  .eq('id', analysisId)
+  .eq('user_id', userId)
+```
+
+### 조인 쿼리
+
+```typescript
+// 공유 토큰으로 분석 조회 (조인)
+const { data, error } = await supabase
+  .from('share_tokens')
+  .select(`
+    token,
+    expires_at,
+    user_analyses (
+      id,
+      name,
+      birth_date,
+      result_json
+    )
+  `)
+  .eq('token', shareToken)
+  .gt('expires_at', new Date().toISOString())
+  .single()
+```
+
+### 트랜잭션 패턴
+
+Supabase는 직접적인 트랜잭션을 지원하지 않으므로, RPC를 사용하거나 애플리케이션 레벨에서 처리:
+
+```typescript
+// RPC 함수 호출 (트랜잭션 보장)
+const { data, error } = await supabase.rpc('create_analysis_with_quota', {
+  p_user_id: userId,
+  p_analysis_data: analysisData,
+})
+```
 
 ---
 
-# (공통) 환경 및 운영 팁
+## 보안 고려사항
 
-## Node.js LTS 호환성
+### 1. Service Role Key 관리
 
-* 현재 시점에서 **Node 22 = Active LTS**, **Node 24 = 2025-10 LTS 전환**으로 파악됩니다. 본 문서의 예제는 두 LTS 트랙에서 정상 동작합니다. ([endoflife.date][7])
+✅ **올바른 사용**:
+- 서버 환경 변수에만 저장
+- `.env.local`은 `.gitignore`에 포함
+- 배포 플랫폼(Vercel, Cloudflare 등)의 환경 변수 사용
 
-## 환경변수 관리
+❌ **금지 사항**:
+- 클라이언트 코드에 노출
+- Git 저장소에 커밋
+- 브라우저 DevTools에서 접근 가능한 위치
 
-* 로컬은 `.env` 사용, 배포 시에는 **플랫폼의 환경변수**(예: Vercel/Cloudflare Workers/Render 등)로 주입.
-* Supabase 키, Clerk Secret/Webhook Secret 등 **민감정보는 “서버 전용”**으로만 유지. (Supabase 키 위치: **Settings → API**) ([Supabase][2])
+### 2. RLS (Row Level Security)
 
-## CORS
+현재 구현에서는 Service Role Key를 사용하므로 **RLS가 비활성화**됩니다.
 
-* 프론트(Next.js)와 백엔드(Hono)가 **서로 다른 도메인**이면 Hono CORS 미들웨어로 허용 도메인을 지정하세요. 환경변수 기반 분기가 간편합니다. ([hono.dev][5])
+대신 애플리케이션 레벨에서 권한 검증:
+
+```typescript
+// ✅ 항상 user_id로 필터링
+const { data } = await supabase
+  .from('user_analyses')
+  .select('*')
+  .eq('user_id', userId)  // 필수!
+  .eq('id', analysisId)
+```
+
+### 3. Soft Delete 패턴
+
+물리적 삭제 대신 `deleted_at` 타임스탬프 사용:
+
+```typescript
+// ✅ 조회 시 항상 deleted_at 체크
+.is('deleted_at', null)
+
+// ✅ 삭제 시 타임스탬프 업데이트
+.update({ deleted_at: new Date().toISOString() })
+```
+
+### 4. SQL Injection 방지
+
+Supabase JS SDK는 자동으로 파라미터화된 쿼리를 사용하므로 안전합니다.
+
+❌ **금지**: 문자열 보간으로 쿼리 생성
+```typescript
+// 절대 사용 금지!
+await supabase.rpc('unsafe_query', {
+  query: `SELECT * FROM users WHERE name = '${userName}'`
+})
+```
+
+✅ **권장**: SDK의 메서드 체이닝 사용
+```typescript
+await supabase
+  .from('users')
+  .select('*')
+  .eq('name', userName)  // 자동으로 이스케이프됨
+```
 
 ---
 
-## 빠른 체크리스트
+## 테이블 구조
 
-* **SDK 수단(@supabase/supabase-js)**
+### users
 
-  * 기능: DB/RPC/Storage/Realtime(Server Only)
-  * 설치: `npm i @supabase/supabase-js`
-  * 세팅: `createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)`
-  * 인증정보: `SUPABASE_SERVICE_KEY`는 **서버 전용** 환경변수
-  * 호출: Hono 라우트 내 `supabase.from(...).select()` 등으로 실행  ([Supabase][1])
+```sql
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clerk_id TEXT UNIQUE NOT NULL,
+  email TEXT,
+  subscription_tier TEXT DEFAULT 'free',
+  remaining_analyses INTEGER DEFAULT 3,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
+);
 
-* **API 수단(Hono 백엔드)**
+CREATE INDEX idx_users_clerk_id ON users(clerk_id);
+```
 
-  * 기능: 비즈니스 API(분석 생성/조회/삭제, 프로필, 구독 등)
-  * 설치: `npm i hono @hono/clerk-auth @clerk/backend`
-  * 세팅: `app.use('/api/*', clerkMiddleware())`
-  * 인증정보: Clerk 서버 시크릿을 **서버 환경변수**로 보관
-  * 호출: Next.js에서 `getToken()` → `Authorization: Bearer <token>`로 Hono 호출  ([Clerk][4])
+### user_analyses
 
-* **Webhook 수단(Clerk → Hono)**
+```sql
+CREATE TABLE user_analyses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  gender TEXT NOT NULL,
+  birth_date DATE NOT NULL,
+  birth_time TIME,
+  is_lunar BOOLEAN DEFAULT FALSE,
+  analysis_type TEXT NOT NULL,
+  result_json JSONB NOT NULL,
+  model_used TEXT DEFAULT 'gemini-2.5-flash',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
+);
 
-  * 기능: `user.created/updated/deleted` 동기화
-  * 설치: `npm i svix` (런타임 검증 라이브러리)
-  * 세팅: Clerk Dashboard에서 Endpoint 등록, `CLERK_WEBHOOK_SECRET` 발급
-  * 인증정보: `whsec_...` 비밀키를 서버 환경변수로 보관
-  * 호출(수신): **Svix 헤더 + raw body**로 `Webhook.verify()` 검증 후 처리  ([docs.svix.com][6])
+CREATE INDEX idx_analyses_user_id ON user_analyses(user_id);
+CREATE INDEX idx_analyses_deleted_at ON user_analyses(deleted_at);
+```
+
+### 주요 관계
+
+```
+users (1) ─────< (N) user_analyses
+  │
+  ├────< (N) user_profiles
+  ├────< (N) payment_history
+  └────< (1) user_subscriptions
+```
 
 ---
 
-### 참고 출처
+## 마이그레이션
 
-* Supabase JS 초기화 및 키 위치: Supabase Docs(Initializing), Supabase Studio(API Settings) ([Supabase][1])
-* Hono × Clerk 미들웨어 패키지: Clerk 안내(community) ([Clerk][4])
-* Clerk 토큰 전달 방식(교차 오리진): Clerk Docs(Authorization: Bearer) ([Clerk][3])
-* Webhook 서명 검증(Svix 헤더/원본 바디): Svix Docs ([docs.svix.com][6])
-* CORS 미들웨어(Hono): Hono Docs ([hono.dev][5])
-* Node LTS 일정: endoflife.date(Node.js), LogRocket(Node 24 LTS 전환) ([endoflife.date][7])
+마이그레이션 파일은 `supabase/migrations/` 디렉토리에 저장:
 
-[1]: https://supabase.com/docs/reference/javascript/initializing?utm_source=chatgpt.com "JavaScript: Initializing | Supabase Docs"
-[2]: https://supabase.com/dashboard/project/%7BPROJECT%7D/settings/api?utm_source=chatgpt.com "API Settings | Supabase"
-[3]: https://clerk.com/docs/guides/development/making-requests?utm_source=chatgpt.com "Development: Request authentication - Clerk"
-[4]: https://clerk.com/changelog/2023-11-08?utm_source=chatgpt.com "Use Clerk with Hono middleware"
-[5]: https://hono.dev/docs/middleware/builtin/cors?utm_source=chatgpt.com "CORS Middleware - Hono"
-[6]: https://docs.svix.com/receiving/verifying-payloads/how-manual?utm_source=chatgpt.com "Verifying Webhooks Manually | Svix Docs"
-[7]: https://endoflife.date/nodejs?utm_source=chatgpt.com "Node.js | endoflife.date"
+```sql
+-- supabase/migrations/0001_create_users_table.sql
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  clerk_id TEXT UNIQUE NOT NULL,
+  email TEXT,
+  subscription_tier TEXT DEFAULT 'free',
+  remaining_analyses INTEGER DEFAULT 3,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
+);
+
+-- 트리거: updated_at 자동 업데이트
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_users_updated_at
+  BEFORE UPDATE ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+```
+
+**마이그레이션 적용**:
+1. Supabase Dashboard → SQL Editor
+2. 마이그레이션 파일 내용 복사 & 실행
+3. 또는 Supabase CLI 사용: `supabase db push`
+
+---
+
+## 트러블슈팅
+
+### 1. "User not found" 에러
+
+**원인**: Clerk 사용자가 Supabase에 동기화되지 않음
+
+**해결**:
+```typescript
+// src/backend/middleware/ensure-user.ts
+export const ensureUserExists = async (
+  supabase: SupabaseClient,
+  clerkId: string,
+  email?: string
+) => {
+  const { data: existingUser } = await supabase
+    .from('users')
+    .select('id, clerk_id')
+    .eq('clerk_id', clerkId)
+    .maybeSingle()
+
+  if (existingUser) return existingUser
+
+  // Webhook이 누락된 경우 사용자 생성
+  const { data: newUser } = await supabase
+    .from('users')
+    .insert({
+      clerk_id: clerkId,
+      email: email ?? null,
+      subscription_tier: 'free',
+      remaining_analyses: 3,
+    })
+    .select('id, clerk_id')
+    .single()
+
+  return newUser
+}
+```
+
+### 2. 날짜 형식 검증 오류
+
+**원인**: Zod의 `.datetime()` 검증이 너무 엄격함
+
+**해결**: `.string()`으로 변경
+```typescript
+// ❌ 엄격한 검증
+createdAt: z.string().datetime()
+
+// ✅ 유연한 검증
+createdAt: z.string()
+```
+
+### 3. 토큰 검증 실패
+
+**원인**: Authorization 헤더 또는 쿠키 누락
+
+**해결**:
+- 프론트엔드에서 `getToken()`으로 토큰 생성 확인
+- API 클라이언트 인터셉터 설정 확인
+- Clerk 환경 변수 확인
+
+---
+
+## 참고 자료
+
+- [Supabase Documentation](https://supabase.com/docs)
+- [Supabase JS Client Reference](https://supabase.com/docs/reference/javascript)
+- [Clerk + Supabase Integration](https://clerk.com/docs/integrations/databases/supabase)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
