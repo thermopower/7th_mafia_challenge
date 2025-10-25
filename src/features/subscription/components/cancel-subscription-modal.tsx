@@ -3,7 +3,6 @@
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -54,20 +53,20 @@ export const CancelSubscriptionModal = ({
             <AlertTriangle className="h-5 w-5 text-amber-500" />
             구독을 취소하시겠습니까?
           </DialogTitle>
-          <DialogDescription className="space-y-2 pt-4">
-            <p>구독을 취소하시면 다음과 같이 처리됩니다:</p>
-            <ul className="list-disc list-inside space-y-1 text-sm">
-              <li>
-                {nextBillingDate
-                  ? `${new Date(nextBillingDate).toLocaleDateString('ko-KR')}까지 Pro 혜택이 유지됩니다.`
-                  : '현재 기간 종료 시까지 Pro 혜택이 유지됩니다.'}
-              </li>
-              <li>이후 자동으로 무료 플랜으로 전환됩니다.</li>
-              <li>남은 분석 횟수는 이월되지 않습니다.</li>
-              <li>취소 철회는 만료 전까지 가능합니다.</li>
-            </ul>
-          </DialogDescription>
         </DialogHeader>
+        <div className="space-y-2 pt-4 text-sm text-muted-foreground">
+          <p>구독을 취소하시면 다음과 같이 처리됩니다:</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>
+              {nextBillingDate
+                ? `${new Date(nextBillingDate).toLocaleDateString('ko-KR')}까지 Pro 혜택이 유지됩니다.`
+                : '현재 기간 종료 시까지 Pro 혜택이 유지됩니다.'}
+            </li>
+            <li>이후 자동으로 무료 플랜으로 전환됩니다.</li>
+            <li>남은 분석 횟수는 이월되지 않습니다.</li>
+            <li>취소 철회는 만료 전까지 가능합니다.</li>
+          </ul>
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
             돌아가기
