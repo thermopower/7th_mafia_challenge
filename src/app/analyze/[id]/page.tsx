@@ -3,6 +3,7 @@
 import { use } from 'react'
 import { useAnalysisDetail } from '@/features/analysis/hooks/use-analysis-detail'
 import { useRelatedAnalyses } from '@/features/analysis/hooks/use-related-analyses'
+import { PageHeader } from '@/components/common/page-header'
 import { AnalysisDetailHeader } from '@/features/analysis/components/analysis-detail-header'
 import { AnalysisResultCards } from '@/features/analysis/components/analysis-result-cards'
 import { AnalysisActions } from '@/features/analysis/components/analysis-actions'
@@ -52,6 +53,10 @@ export default function AnalysisDetailPage(props: {
 
   return (
     <div className="container py-8 space-y-8">
+      <PageHeader
+        title="분석 결과"
+        description="사주 분석 결과를 확인하세요"
+      />
       <AnalysisDetailHeader analysis={analysis} />
       <AnalysisResultCards result={result} />
       <AnalysisActions analysisId={params.id} analysis={analysis} result={result} />
