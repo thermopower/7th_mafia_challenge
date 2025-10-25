@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 
 export function ProfileSelector() {
-  const { data: profiles, isLoading } = useProfilesList()
+  const { data, isLoading } = useProfilesList()
   const router = useRouter()
 
   const handleSelectProfile = (profileId: string) => {
@@ -26,7 +26,7 @@ export function ProfileSelector() {
     return <LoadingSpinner message="프로필 목록을 불러오는 중..." />
   }
 
-  if (!profiles || profiles.length === 0) {
+  if (!data || !data.profiles || data.profiles.length === 0) {
     return (
       <EmptyState
         title="저장된 프로필이 없습니다"
@@ -39,7 +39,7 @@ export function ProfileSelector() {
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      {profiles.map((profile) => (
+      {data.profiles.map((profile) => (
         <Card
           key={profile.id}
           className="cursor-pointer transition-colors hover:bg-accent"
