@@ -12,10 +12,10 @@ export function useAnalysisDetail(id: string) {
   return useQuery({
     queryKey: queryKeys.analysisDetail(id),
     queryFn: async () => {
-      const response = await apiClient.get<{ data: AnalysisDetailResponse }>(
+      const response = await apiClient.get<AnalysisDetailResponse>(
         `/api/analysis/${id}`
       )
-      return response.data.data
+      return response.data
     },
     staleTime: Infinity, // 분석 결과는 변경 불가
     retry: 1,

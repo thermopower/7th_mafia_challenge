@@ -10,4 +10,4 @@ export const profileErrorCodes = {
   duplicateProfile: 'PROFILE_DUPLICATE',
 } as const;
 
-export type ProfileServiceError = keyof typeof profileErrorCodes;
+export type ProfileServiceError = (typeof profileErrorCodes)[keyof typeof profileErrorCodes];

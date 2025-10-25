@@ -4,7 +4,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { AppLogger } from '@/backend/config'
+import type { AppLogger } from '@/backend/hono/context'
 
 export const ensureUserExists = async (
   supabase: SupabaseClient,

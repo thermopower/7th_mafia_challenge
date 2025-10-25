@@ -19,7 +19,7 @@ export async function getAnalysisDetail(
     .single();
 
   if (!user) {
-    return failure(ANALYSIS_ERRORS.NOT_FOUND, 404);
+    return failure(404, analysisErrorCodes.notFound, 'User not found');
   }
 
   const { data, error } = await supabase
@@ -31,7 +31,7 @@ export async function getAnalysisDetail(
     .single()
 
   if (error || !data) {
-    return failure(ANALYSIS_ERRORS.NOT_FOUND, 404)
+    return failure(404, analysisErrorCodes.notFound, 'Analysis not found')
   }
 
   // JSON 결과 파싱
@@ -73,7 +73,7 @@ export async function getRelatedAnalyses(
     .single();
 
   if (!user) {
-    return failure(ANALYSIS_ERRORS.NOT_FOUND, 404);
+    return failure(404, analysisErrorCodes.notFound, 'User not found');
   }
 
   // 현재 분석의 이름 조회
@@ -84,7 +84,7 @@ export async function getRelatedAnalyses(
     .single()
 
   if (!currentAnalysis) {
-    return failure(ANALYSIS_ERRORS.NOT_FOUND, 404)
+    return failure(404, analysisErrorCodes.notFound, 'Analysis not found')
   }
 
   // 동일 이름의 다른 분석 조회
@@ -99,7 +99,7 @@ export async function getRelatedAnalyses(
     .limit(limit)
 
   if (error) {
-    return failure(ANALYSIS_ERRORS.DATABASE_ERROR, 500)
+    return failure(500, analysisErrorCodes.fetchError, 'Failed to fetch related analyses')
   }
 
   return success({ analyses: data || [] })
@@ -118,7 +118,7 @@ export async function deleteAnalysis(
     .single();
 
   if (!user) {
-    return failure(analysisErrorCodes.notFound, 404);
+    return failure(404, analysisErrorCodes.notFound, 'User not found');
   }
 
   // 소유권 확인
@@ -131,7 +131,7 @@ export async function deleteAnalysis(
     .single()
 
   if (!existing) {
-    return failure(analysisErrorCodes.notFound, 404)
+    return failure(404, analysisErrorCodes.notFound, 'Analysis not found')
   }
 
   // Soft delete
@@ -141,7 +141,7 @@ export async function deleteAnalysis(
     .eq('id', analysisId)
 
   if (error) {
-    return failure(analysisErrorCodes.deleteError, 500)
+    return failure(500, analysisErrorCodes.deleteError, 'Failed to delete analysis')
   }
 
   return success({ ok: true })

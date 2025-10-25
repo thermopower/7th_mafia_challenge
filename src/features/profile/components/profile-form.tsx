@@ -16,13 +16,13 @@ import {
 } from '@/components/ui/select';
 import type { ProfileFormData, Profile } from '../types';
 
-const profileFormSchema = z.object({
+const profileFormSchema: z.ZodType<ProfileFormData> = z.object({
   name: z.string().min(1, '이름을 입력해주세요').max(50, '이름은 50자 이내로 입력해주세요'),
   gender: z.enum(['male', 'female'], { required_error: '성별을 선택해주세요' }),
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '올바른 날짜 형식이 아닙니다'),
   birthTime: z.string().regex(/^\d{2}:\d{2}$/).optional().or(z.literal('')),
   isLunar: z.boolean(),
-});
+}) as z.ZodType<ProfileFormData>;
 
 interface ProfileFormProps {
   defaultValues?: Partial<Profile>;

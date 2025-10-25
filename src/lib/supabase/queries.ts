@@ -32,10 +32,21 @@ export const updateUserCredits = async (
   userId: string,
   delta: number
 ) => {
+  // 현재 값을 가져와서 계산
+  const { data: userData, error: fetchError } = await supabase
+    .from('users')
+    .select('remaining_analyses')
+    .eq('clerk_id', userId)
+    .single()
+
+  if (fetchError) throw fetchError
+
+  const newValue = (userData.remaining_analyses || 0) + delta
+
   const { data, error } = await supabase
     .from('users')
     .update({
-      remaining_analyses: supabase.raw(`remaining_analyses + ${delta}`),
+      remaining_analyses: newValue,
     })
     .eq('clerk_id', userId)
     .select('remaining_analyses')

@@ -10,8 +10,7 @@ import { calculateSaju } from '@/lib/saju/calculate'
 import { lunarToSolar } from '@/lib/date/lunar'
 import { generateAnalysis } from '@/lib/gemini/client'
 import { createAnalysisPrompt } from '@/lib/gemini/prompts'
-import type { AppLogger } from '@/backend/middleware/logger'
-import type { AppConfig } from '@/backend/config'
+import type { AppLogger, AppConfig } from '@/backend/hono/context'
 
 /**
  * 사용자 잔여 횟수 조회

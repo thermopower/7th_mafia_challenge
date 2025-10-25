@@ -48,10 +48,12 @@ export default function AnalysisDetailPage(props: {
 
   if (!data) return null
 
+  const { analysis, result } = data
+
   return (
     <div className="container py-8 space-y-8">
-      <AnalysisDetailHeader analysis={data.analysis} />
-      <AnalysisResultCards result={data.result} />
+      <AnalysisDetailHeader analysis={analysis} />
+      <AnalysisResultCards result={result} />
       <AnalysisActions analysisId={params.id} />
       {relatedData?.analyses && relatedData.analyses.length > 0 && (
         <RelatedAnalyses analyses={relatedData.analyses} />

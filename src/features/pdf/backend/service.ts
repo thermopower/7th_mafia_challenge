@@ -18,7 +18,7 @@ export async function generateAnalysisPDF(
     .single()
 
   if (error || !data) {
-    return failure(PDF_ERRORS.ANALYSIS_NOT_FOUND, 404)
+    return failure(404, PDF_ERRORS.ANALYSIS_NOT_FOUND, 'Analysis not found')
   }
 
   try {
@@ -72,6 +72,6 @@ export async function generateAnalysisPDF(
     const pdfBlob = doc.output('blob')
     return success({ pdfBlob })
   } catch (err) {
-    return failure(PDF_ERRORS.GENERATION_FAILED, 500)
+    return failure(500, PDF_ERRORS.GENERATION_FAILED, 'Failed to generate PDF')
   }
 }

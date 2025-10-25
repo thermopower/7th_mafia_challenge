@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { LoadingSpinner } from '@/components/common/loading-spinner'
 import { ErrorState } from '@/components/common/error-state'
@@ -15,7 +15,7 @@ import { CheckCircle2 } from 'lucide-react'
 
 type PageStatus = 'processing' | 'success' | 'error'
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<PageStatus>('processing')
@@ -102,5 +102,19 @@ export default function PaymentSuccessPage() {
         }}
       />
     </div>
+  )
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto flex min-h-screen items-center justify-center">
+          <LoadingSpinner message="로딩 중..." />
+        </div>
+      }
+    >
+      <PaymentSuccessContent />
+    </Suspense>
   )
 }

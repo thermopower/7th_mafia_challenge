@@ -7,7 +7,11 @@
       "Bash(if exist C:UsersjsDesktopsupernext.next rmdir /s /q C:UsersjsDesktopsupernext.next)",
       "Bash(powershell -Command:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\nfix: unify authentication to use Clerk across all API routes\n\n- Remove duplicate /api/user/quota route from analyze feature\n- Replace Supabase Auth (withAuth middleware) with Clerk authentication\n- Update all backend services to use clerk_id instead of Supabase user_id\n- Fix profile, payment, and subscription services to resolve clerk_id to UUID\n- Remove debugging logs from middleware and route handlers\n- Ensure consistent authentication flow across all features\n\nThis fixes 401 errors on /api/user/quota and consolidates authentication\nto use Clerk exclusively, aligning with the project''s auth architecture.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(git commit -m \"$(cat <<''EOF''\nfix: unify authentication to use Clerk across all API routes\n\n- Remove duplicate /api/user/quota route from analyze feature\n- Replace Supabase Auth (withAuth middleware) with Clerk authentication\n- Update all backend services to use clerk_id instead of Supabase user_id\n- Fix profile, payment, and subscription services to resolve clerk_id to UUID\n- Remove debugging logs from middleware and route handlers\n- Ensure consistent authentication flow across all features\n\nThis fixes 401 errors on /api/user/quota and consolidates authentication\nto use Clerk exclusively, aligning with the project''s auth architecture.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)",
+      "Bash(Remove-Item \"C:\\Users\\js\\Desktop\\supernext\\src\\features\\analyze\\hooks\\use-user-quota.ts\" -Force)",
+      "Bash(Remove-Item \"C:\\Users\\js\\Desktop\\supernext\\src\\features\\analyze\\backend\\schema.ts\" -Force)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

@@ -17,7 +17,7 @@ export async function createShareToken(
     .single()
 
   if (!analysis) {
-    return failure(SHARE_ERRORS.ANALYSIS_NOT_FOUND, 404)
+    return failure(404, SHARE_ERRORS.ANALYSIS_NOT_FOUND, 'Analysis not found')
   }
 
   // UUID 기반 토큰 생성
@@ -32,7 +32,7 @@ export async function createShareToken(
   })
 
   if (error) {
-    return failure(SHARE_ERRORS.DATABASE_ERROR, 500)
+    return failure(500, SHARE_ERRORS.DATABASE_ERROR, 'Failed to create share token')
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'

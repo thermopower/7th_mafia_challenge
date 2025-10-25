@@ -5,15 +5,10 @@ import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import Link from 'next/link'
+import type { RelatedAnalysesResponse } from '../backend/schema'
 
 interface RelatedAnalysesProps {
-  analyses: Array<{
-    id: string
-    name: string
-    analysisType: 'monthly' | 'yearly' | 'lifetime'
-    modelUsed: string
-    createdAt: string
-  }>
+  analyses: RelatedAnalysesResponse['analyses']
 }
 
 const ANALYSIS_TYPE_LABELS = {

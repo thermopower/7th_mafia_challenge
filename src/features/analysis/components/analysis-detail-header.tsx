@@ -5,17 +5,10 @@ import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
+import type { AnalysisDetailResponse } from '../backend/schema'
+
 interface AnalysisDetailHeaderProps {
-  analysis: {
-    name: string
-    gender: 'male' | 'female'
-    birthDate: string
-    birthTime: string | null
-    isLunar: boolean
-    analysisType: 'monthly' | 'yearly' | 'lifetime'
-    modelUsed: string
-    createdAt: string
-  }
+  analysis: AnalysisDetailResponse['analysis']
 }
 
 const ANALYSIS_TYPE_LABELS = {

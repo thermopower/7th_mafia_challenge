@@ -8,9 +8,4 @@ export const subscriptionErrorCodes = {
   updateError: 'SUBSCRIPTION_UPDATE_ERROR',
 } as const;
 
-export type SubscriptionErrorCode = typeof subscriptionErrorCodes[keyof typeof subscriptionErrorCodes];
-
-export type SubscriptionServiceError = {
-  code: SubscriptionErrorCode;
-  message: string;
-};
+export type SubscriptionServiceError = typeof subscriptionErrorCodes[keyof typeof subscriptionErrorCodes];

@@ -2,15 +2,10 @@
 
 import { FortuneCard } from './fortune-card'
 import { FORTUNE_CONFIG, FORTUNE_ORDER } from '../constants/fortune'
+import type { AnalysisDetailResponse } from '../backend/schema'
 
 interface AnalysisResultCardsProps {
-  result: {
-    general: string
-    wealth: string
-    love: string
-    health: string
-    job: string
-  }
+  result: AnalysisDetailResponse['result']
 }
 
 export function AnalysisResultCards({ result }: AnalysisResultCardsProps) {
