@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { SubscriptionStatusCard } from '@/features/subscription/components/subscription-status-card';
 import { PlanComparisonTable } from '@/features/subscription/components/plan-comparison-table';
@@ -10,6 +11,7 @@ import { PaymentHistoryTable } from '@/features/subscription/components/payment-
 import { useSubscriptionStatus } from '@/features/subscription/hooks/use-subscription-status';
 
 export default function SubscriptionPage() {
+  const router = useRouter();
   const { data: subscription } = useSubscriptionStatus();
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showReactivateModal, setShowReactivateModal] = useState(false);
@@ -28,7 +30,11 @@ export default function SubscriptionPage() {
       {subscription && (
         <div className="flex gap-4">
           {subscription.plan === 'free' && (
-            <Button size="lg" className="w-full md:w-auto">
+            <Button
+              size="lg"
+              className="w-full md:w-auto"
+              onClick={() => router.push('/checkout')}
+            >
               Pro로 업그레이드
             </Button>
           )}
