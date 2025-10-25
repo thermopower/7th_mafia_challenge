@@ -387,6 +387,120 @@ export default function Providers({ children }) {
 
 ---
 
+# 7) ⚠️ 중요 주의사항 (반드시 준수할 것)
+
+## A. 인증 방식 통일 원칙
+
+**이 프로젝트는 Clerk만 사용합니다. Supabase Auth는 사용하지 않습니다.**
+
+### ❌ 절대 사용하지 말 것
+
+```ts
+// ❌ 금지: Supabase Auth 미들웨어
+import { withAuth } from '@/backend/middleware/auth'
+app.get('/api/example', withAuth(), async (c) => { ... })
+
+// ❌ 금지: Supabase Auth 사용자 조회
+const { data: { user } } = await supabase.auth.getUser()
+
+// ❌ 금지: Supabase 쿠키 확인
+const token = getCookie(c, 'sb-access-token')
+```
+
+### ✅ 반드시 사용할 것
+
+```ts
+// ✅ 올바름: Clerk 미들웨어 (이미 전역 적용됨)
+// src/backend/hono/app.ts에서 app.use("*", withClerkAuth()) 설정됨
+
+// ✅ 올바름: 컨텍스트에서 userId 가져오기
+const userId = c.get('userId'); // Clerk ID
+
+if (!userId) {
+  return c.json({ error: { message: '인증이 필요합니다' } }, 401);
+}
+```
+
+## B. 라우트 중복 방지
+
+**같은 경로를 여러 feature에서 등록하지 마세요.**
+
+### 문제 사례
+
+```ts
+// ❌ analyze/backend/route.ts
+app.get('/user/quota', async (c) => { ... })  // /api/user/quota
+
+// ❌ user/backend/route.ts
+app.get('/api/user/quota', async (c) => { ... })  // 중복!
+```
+
+**먼저 등록된 라우트가 우선**되므로, 나중에 등록된 라우트는 실행되지 않습니다.
+
+### 해결 방법
+
+1. **기능별로 경로 분리**: 각 feature는 자신의 도메인 경로만 담당
+2. **공통 라우트는 한 곳에만**: `/api/user/*`는 `user` feature에만
+
+## C. 서비스 레이어: clerk_id → UUID 변환
+
+Supabase 테이블은 UUID `user_id`를 외래키로 사용하지만, API는 Clerk ID를 받습니다.
+
+### ✅ 올바른 패턴
+
+```ts
+// src/features/example/backend/service.ts
+export const getExampleData = async (
+  client: SupabaseClient,
+  clerkId: string, // ✅ 파라미터는 clerk_id
+) => {
+  // 1. clerk_id로 UUID user_id 조회
+  const { data: userData, error: userError } = await client
+    .from('users')
+    .select('id')
+    .eq('clerk_id', clerkId)
+    .single();
+
+  if (userError || !userData) {
+    return failure(500, 'USER_NOT_FOUND', 'User not found');
+  }
+
+  const userUuid = userData.id; // ✅ UUID로 변환
+
+  // 2. UUID로 다른 테이블 조회
+  const { data, error } = await client
+    .from('example_table')
+    .select('*')
+    .eq('user_id', userUuid); // ✅ UUID 사용
+
+  // ...
+}
+```
+
+### ❌ 잘못된 패턴
+
+```ts
+// ❌ clerk_id를 직접 user_id로 사용
+const { data, error } = await client
+  .from('example_table')
+  .select('*')
+  .eq('user_id', clerkId); // ❌ 타입 불일치로 조회 실패
+```
+
+## D. 체크리스트: 새 API 라우트 작성 시
+
+새로운 API 라우트를 작성할 때 다음을 확인하세요:
+
+- [ ] `withClerkAuth()` 미들웨어는 전역으로 이미 적용됨 (추가 불필요)
+- [ ] `c.get('userId')`로 Clerk ID 가져오기
+- [ ] `userId` 없으면 401 반환
+- [ ] 서비스 레이어에서 clerk_id → UUID 변환
+- [ ] UUID로 Supabase 테이블 조회
+- [ ] 중복 라우트 경로 확인 (다른 feature에 동일 경로 없는지)
+- [ ] `withAuth()` (Supabase Auth) 사용 금지 확인
+
+---
+
 ## 참고한 공식 문서
 
 * **Next.js 퀵스타트/SDK**: 설치·Provider·훅/도우미 전반. ([Clerk][1])
