@@ -77,9 +77,9 @@ export function ShareModal({ analysisId, isOpen, onClose }: ShareModalProps) {
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
-              <Button onClick={handleKakaoShare} className="w-full" variant="outline">
+              <Button onClick={handleKakaoShare} className="w-full" variant="outline" disabled>
                 <MessageCircle className="mr-2 h-4 w-4" />
-                카카오톡으로 공유
+                카카오톡으로 공유 (예정)
               </Button>
             </>
           )}
