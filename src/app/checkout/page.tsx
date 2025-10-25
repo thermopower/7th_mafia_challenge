@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
-import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
+import { loadTossPayments, TossPaymentsPayment } from '@tosspayments/tosspayments-sdk';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, Loader2 } from 'lucide-react';
@@ -15,8 +15,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { user } = useUser();
   const [isLoading, setIsLoading] = useState(false);
-  const [isSDKLoaded, setIsSDKLoaded] = useState(false);
-  const tossPaymentsRef = useRef<any>(null);
+  const [payment, setPayment] = useState<TossPaymentsPayment | null>(null);
 
   useEffect(() => {
     if (!clientKey) {
@@ -26,16 +25,19 @@ export default function CheckoutPage() {
 
     loadTossPayments(clientKey)
       .then((tossPayments) => {
-        tossPaymentsRef.current = tossPayments;
-        setIsSDKLoaded(true);
+        // 결제창 생성
+        const paymentInstance = tossPayments.payment({
+          customerKey: user?.id || 'ANONYMOUS',
+        });
+        setPayment(paymentInstance);
       })
       .catch((error) => {
         console.error('토스페이먼츠 SDK 로드 실패:', error);
       });
-  }, []);
+  }, [user?.id]);
 
   const handlePayment = async () => {
-    if (!user || !tossPaymentsRef.current) {
+    if (!user || !payment) {
       return;
     }
 
@@ -45,17 +47,19 @@ export default function CheckoutPage() {
       const orderId = `order-${user.id}-${Date.now()}`;
       const customerKey = user.id;
 
-      // 토스페이먼츠 빌링키 발급을 위한 카드 등록
-      // 일반 결제창을 사용하여 카드 등록 후 빌링키 발급
-      await tossPaymentsRef.current.requestPayment({
+      // 토스페이먼츠 결제창 호출
+      await payment.requestPayment({
         method: 'CARD',
-        amount: 10000, // 첫 결제 금액
+        amount: {
+          currency: 'KRW',
+          value: 10000,
+        },
         orderId: orderId,
         orderName: 'SuperNext Pro 구독',
-        customerName: user.fullName || user.emailAddresses[0]?.emailAddress || '사용자',
-        customerEmail: user.emailAddresses[0]?.emailAddress,
         successUrl: `${window.location.origin}/api/billing/issue?customerKey=${customerKey}&orderId=${orderId}`,
         failUrl: `${window.location.origin}/checkout?error=payment_failed`,
+        customerEmail: user.emailAddresses[0]?.emailAddress,
+        customerName: user.fullName || user.emailAddresses[0]?.emailAddress || '사용자',
       });
     } catch (error) {
       console.error('결제 요청 실패:', error);
@@ -124,7 +128,7 @@ export default function CheckoutPage() {
 
             <Button
               onClick={handlePayment}
-              disabled={isLoading || !isSDKLoaded}
+              disabled={isLoading || !payment}
               className="w-full"
               size="lg"
             >
