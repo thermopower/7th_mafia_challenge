@@ -1,0 +1,56 @@
+test:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.test.ts'
+      - '**/*.test.tsx'
+      - '**/*.spec.ts'
+      - 'e2e/**/*'
+      - 'src/__tests__/**/*'
+      - 'vitest.config.ts'
+      - 'playwright.config.ts'
+
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.md'
+      - 'docs/**/*'
+
+backend:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/backend/**/*'
+      - 'src/features/**/backend/**/*'
+      - 'src/app/api/**/*'
+
+frontend:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/app/**/page.tsx'
+      - 'src/app/**/layout.tsx'
+      - 'src/components/**/*'
+      - 'src/features/**/components/**/*'
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'package.json'
+      - 'package-lock.json'
+
+ci-cd:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/workflows/**/*'
+      - '.github/**/*'
+
+database:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'supabase/migrations/**/*'
+
+config:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '*.config.ts'
+      - '*.config.js'
+      - '.env*'
+      - 'tsconfig.json'
