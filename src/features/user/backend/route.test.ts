@@ -30,6 +30,7 @@ describe('User Routes', () => {
     it('should return user quota successfully', async () => {
       vi.spyOn(service, 'getUserQuota').mockResolvedValue({
         ok: true,
+        status: 200,
         data: {
           plan: 'pro',
           remainingAnalyses: 50,
@@ -68,6 +69,7 @@ describe('User Routes', () => {
     it('should call getUserQuota service with correct parameters', async () => {
       const getUserQuotaSpy = vi.spyOn(service, 'getUserQuota').mockResolvedValue({
         ok: true,
+        status: 200,
         data: {
           plan: 'free',
           remainingAnalyses: 5,
