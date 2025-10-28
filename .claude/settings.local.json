@@ -12,7 +12,11 @@
       "Bash(Remove-Item \"C:\\Users\\js\\Desktop\\supernext\\src\\features\\analyze\\hooks\\use-user-quota.ts\" -Force)",
       "Bash(Remove-Item \"C:\\Users\\js\\Desktop\\supernext\\src\\features\\analyze\\backend\\schema.ts\" -Force)",
       "Bash(npm run build:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(mkdir:*)",
+      "Bash(test:*)",
+      "Bash(npm run test:unit:*)",
+      "Bash(npm run lint:*)"
     ],
     "deny": [],
     "ask": []
