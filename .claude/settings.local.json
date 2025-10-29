@@ -16,7 +16,11 @@
       "Bash(mkdir:*)",
       "Bash(test:*)",
       "Bash(npm run test:unit:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run test:unit:coverage:*)",
+      "Bash(dir /b C:UsersjsDesktopsupernextsrcfeatures)",
+      "Bash(npx vitest:*)"
     ],
     "deny": [],
     "ask": []
