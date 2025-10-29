@@ -22,6 +22,13 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = 'pk_test_xxx';
 process.env.CLERK_SECRET_KEY = 'sk_test_xxx';
 
+// ResizeObserver 모킹
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // Next.js 라우터 모킹
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({
