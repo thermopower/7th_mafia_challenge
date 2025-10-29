@@ -60,18 +60,23 @@ describe('Subscription Service', () => {
 
     it('should return 404 when user not found', async () => {
       // Arrange
-      vi.spyOn(mockSupabase, 'from').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            is: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: null,
-                error: null,
+      vi.spyOn(mockSupabase, 'from').mockImplementation((table: string) => {
+        if (table === 'users') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                is: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: null,
+                    error: null,
+                  }),
+                }),
               }),
             }),
-          }),
-        }),
-      } as any);
+          } as any;
+        }
+        return {} as any;
+      });
 
       // Act
       const result = await getSubscriptionStatus(
@@ -82,25 +87,30 @@ describe('Subscription Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(404);
+        expect(result.status).toBe(404);
         expect(result.error.code).toBe(subscriptionErrorCodes.notFound);
       }
     });
 
     it('should handle database error gracefully', async () => {
       // Arrange
-      vi.spyOn(mockSupabase, 'from').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            is: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: null,
-                error: { message: 'Connection failed' },
+      vi.spyOn(mockSupabase, 'from').mockImplementation((table: string) => {
+        if (table === 'users') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                is: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: null,
+                    error: { message: 'Connection failed' },
+                  }),
+                }),
               }),
             }),
-          }),
-        }),
-      } as any);
+          } as any;
+        }
+        return {} as any;
+      });
 
       // Act
       const result = await getSubscriptionStatus(mockSupabase, 'user-123');
@@ -108,7 +118,7 @@ describe('Subscription Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(500);
+        expect(result.status).toBe(500);
         expect(result.error.code).toBe(subscriptionErrorCodes.fetchError);
       }
     });
@@ -157,18 +167,23 @@ describe('Subscription Service', () => {
         cancel_at_period_end: false,
       };
 
-      vi.spyOn(mockSupabase, 'from').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            is: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: mockUser,
-                error: null,
+      vi.spyOn(mockSupabase, 'from').mockImplementation((table: string) => {
+        if (table === 'users') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                is: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: mockUser,
+                    error: null,
+                  }),
+                }),
               }),
             }),
-          }),
-        }),
-      } as any);
+          } as any;
+        }
+        return {} as any;
+      });
 
       // Act
       const result = await cancelSubscription(mockSupabase, 'user-123');
@@ -176,7 +191,7 @@ describe('Subscription Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(400);
+        expect(result.status).toBe(400);
         expect(result.error.code).toBe(
           subscriptionErrorCodes.alreadyCanceled
         );
@@ -190,18 +205,23 @@ describe('Subscription Service', () => {
         cancel_at_period_end: true,
       };
 
-      vi.spyOn(mockSupabase, 'from').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            is: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: mockUser,
-                error: null,
+      vi.spyOn(mockSupabase, 'from').mockImplementation((table: string) => {
+        if (table === 'users') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                is: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: mockUser,
+                    error: null,
+                  }),
+                }),
               }),
             }),
-          }),
-        }),
-      } as any);
+          } as any;
+        }
+        return {} as any;
+      });
 
       // Act
       const result = await cancelSubscription(mockSupabase, 'user-123');
@@ -209,7 +229,7 @@ describe('Subscription Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(400);
+        expect(result.status).toBe(400);
         expect(result.error.code).toBe(
           subscriptionErrorCodes.alreadyCanceled
         );
@@ -264,18 +284,23 @@ describe('Subscription Service', () => {
         billing_key: 'billing-key',
       };
 
-      vi.spyOn(mockSupabase, 'from').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            is: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: mockUser,
-                error: null,
+      vi.spyOn(mockSupabase, 'from').mockImplementation((table: string) => {
+        if (table === 'users') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                is: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: mockUser,
+                    error: null,
+                  }),
+                }),
               }),
             }),
-          }),
-        }),
-      } as any);
+          } as any;
+        }
+        return {} as any;
+      });
 
       // Act
       const result = await reactivateSubscription(mockSupabase, 'user-123');
@@ -283,7 +308,7 @@ describe('Subscription Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(400);
+        expect(result.status).toBe(400);
         expect(result.error.code).toBe(subscriptionErrorCodes.alreadyActive);
       }
     });
@@ -297,18 +322,23 @@ describe('Subscription Service', () => {
         billing_key: 'billing-key',
       };
 
-      vi.spyOn(mockSupabase, 'from').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            is: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: mockUser,
-                error: null,
+      vi.spyOn(mockSupabase, 'from').mockImplementation((table: string) => {
+        if (table === 'users') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                is: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: mockUser,
+                    error: null,
+                  }),
+                }),
               }),
             }),
-          }),
-        }),
-      } as any);
+          } as any;
+        }
+        return {} as any;
+      });
 
       // Act
       const result = await reactivateSubscription(mockSupabase, 'user-123');
@@ -316,7 +346,7 @@ describe('Subscription Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(400);
+        expect(result.status).toBe(400);
         expect(result.error.code).toBe(
           subscriptionErrorCodes.cannotReactivateExpired
         );
@@ -418,16 +448,21 @@ describe('Subscription Service', () => {
 
     it('should return error when user not found', async () => {
       // Arrange
-      vi.spyOn(mockSupabase, 'from').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: null,
-              error: { message: 'User not found' },
+      vi.spyOn(mockSupabase, 'from').mockImplementation((table: string) => {
+        if (table === 'users') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: { message: 'User not found' },
+                }),
+              }),
             }),
-          }),
-        }),
-      } as any);
+          } as any;
+        }
+        return {} as any;
+      });
 
       // Act
       const result = await getPaymentHistory(mockSupabase, 'non-existent');
@@ -435,7 +470,7 @@ describe('Subscription Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(500);
+        expect(result.status).toBe(500);
         expect(result.error.code).toBe(subscriptionErrorCodes.fetchError);
       }
     });
@@ -478,7 +513,7 @@ describe('Subscription Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(500);
+        expect(result.status).toBe(500);
         expect(result.error.code).toBe(subscriptionErrorCodes.fetchError);
       }
     });

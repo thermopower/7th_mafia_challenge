@@ -82,16 +82,21 @@ describe('Analysis Service', () => {
 
     it('should return 404 error when user not found', async () => {
       // Arrange: 사용자 없음
-      vi.spyOn(mockSupabase, 'from').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: null,
-              error: null,
+      vi.spyOn(mockSupabase, 'from').mockImplementation((table: string) => {
+        if (table === 'users') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: null,
+                }),
+              }),
             }),
-          }),
-        }),
-      } as any);
+          } as any;
+        }
+        return {} as any;
+      });
 
       // Act
       const result = await getAnalysisDetail(
@@ -103,7 +108,7 @@ describe('Analysis Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(404);
+        expect(result.status).toBe(404);
         expect(result.error.code).toBe(analysisErrorCodes.notFound);
       }
     });
@@ -152,7 +157,7 @@ describe('Analysis Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(404);
+        expect(result.status).toBe(404);
         expect(result.error.code).toBe(analysisErrorCodes.notFound);
       }
     });
@@ -377,7 +382,7 @@ describe('Analysis Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(404);
+        expect(result.status).toBe(404);
         expect(result.error.code).toBe(analysisErrorCodes.notFound);
       }
     });
@@ -427,7 +432,7 @@ describe('Analysis Service', () => {
       // Assert: 404 반환 (권한 없는 접근은 존재하지 않는 것처럼 처리)
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(404);
+        expect(result.status).toBe(404);
       }
     });
   });
@@ -686,7 +691,7 @@ describe('Analysis Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(500);
+        expect(result.status).toBe(500);
         expect(result.error.code).toBe(analysisErrorCodes.fetchError);
       }
     });
@@ -695,16 +700,21 @@ describe('Analysis Service', () => {
   describe('Error Handling', () => {
     it('should handle user lookup error', async () => {
       // Arrange: 사용자 조회 시 DB 에러
-      vi.spyOn(mockSupabase, 'from').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: null,
-              error: { message: 'Connection timeout' },
+      vi.spyOn(mockSupabase, 'from').mockImplementation((table: string) => {
+        if (table === 'users') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: { message: 'Connection timeout' },
+                }),
+              }),
             }),
-          }),
-        }),
-      } as any);
+          } as any;
+        }
+        return {} as any;
+      });
 
       // Act
       const result = await getAnalysesList(mockSupabase, 'clerk-id', {
@@ -717,23 +727,28 @@ describe('Analysis Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(500);
+        expect(result.status).toBe(500);
         expect(result.error.code).toBe(analysisErrorCodes.fetchError);
       }
     });
 
     it('should return 404 when user does not exist', async () => {
       // Arrange
-      vi.spyOn(mockSupabase, 'from').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: null,
-              error: null,
+      vi.spyOn(mockSupabase, 'from').mockImplementation((table: string) => {
+        if (table === 'users') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: null,
+                }),
+              }),
             }),
-          }),
-        }),
-      } as any);
+          } as any;
+        }
+        return {} as any;
+      });
 
       // Act
       const result = await getAnalysesList(mockSupabase, 'non-existent', {
@@ -746,7 +761,7 @@ describe('Analysis Service', () => {
       // Assert
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.status).toBe(404);
+        expect(result.status).toBe(404);
         expect(result.error.code).toBe(analysisErrorCodes.notFound);
       }
     });
