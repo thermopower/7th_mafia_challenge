@@ -64,7 +64,7 @@ export const createMockAnalysisRequest = (overrides: Record<string, any> = {}) =
   birthDate: '1990-01-01',
   birthTime: '12:00',
   isLunar: false,
-  analysisType: 'comprehensive',
+  analysisType: 'monthly',
   saveAsProfile: false,
   ...overrides,
 });
